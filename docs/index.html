@@ -3,86 +3,112 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Arcane Wayfarer: Arena Prototype</title>
+  <title>Wayfarer Arcanist: Wilds Prototype</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="game-root">
     <canvas id="game-canvas" aria-label="3D world"></canvas>
 
-    <div id="crosshair" class="crosshair hidden">+</div>
-
     <div class="hud">
       <div class="hud__left">
-        <canvas id="minimap" width="160" height="160" aria-label="Minimap"></canvas>
+        <canvas id="minimap" width="180" height="180" aria-label="Minimap"></canvas>
         <div class="bars">
           <div class="bar">
-            <span>HP</span>
+            <span>Health</span>
             <div class="bar__track"><div class="bar__fill" id="hud-hp"></div></div>
             <div class="bar__text" id="hud-hp-text"></div>
           </div>
-          <div class="bar bar--stamina">
-            <span>Stamina</span>
-            <div class="bar__track"><div class="bar__fill" id="hud-stamina"></div></div>
-            <div class="bar__text" id="hud-stamina-text"></div>
+          <div class="bar bar--mana">
+            <span>Mana</span>
+            <div class="bar__track"><div class="bar__fill" id="hud-mana"></div></div>
+            <div class="bar__text" id="hud-mana-text"></div>
+          </div>
+          <div class="bar bar--fatigue">
+            <span>Fatigue</span>
+            <div class="bar__track"><div class="bar__fill" id="hud-fatigue"></div></div>
+            <div class="bar__text" id="hud-fatigue-text"></div>
           </div>
         </div>
         <div class="stats">
-          <div>Ammo: <span id="hud-ammo">0</span></div>
-          <div>Wave: <span id="hud-wave">1</span></div>
+          <div>Level: <span id="hud-level">1</span></div>
           <div>XP: <span id="hud-xp">0</span></div>
-          <div>Weapon: <span id="hud-weapon">Melee</span></div>
+          <div>Gold: <span id="hud-gold">0</span></div>
+          <div>Zone: <span id="hud-zone">Camp</span></div>
         </div>
         <div class="panel">
           <h3>Inventory</h3>
+          <div class="equipment">
+            <div>Staff: <span id="equip-staff">None</span></div>
+            <div>Robe: <span id="equip-robe">None</span></div>
+            <div>Ring: <span id="equip-ring">None</span></div>
+          </div>
           <ul id="inventory-list"></ul>
         </div>
       </div>
 
+      <div class="hud__center">
+        <div id="cast-bar" class="cast-bar hidden">
+          <div class="cast-bar__label" id="cast-label"></div>
+          <div class="cast-bar__track"><div class="cast-bar__fill" id="cast-fill"></div></div>
+        </div>
+        <div id="floating-text"></div>
+        <div id="target-frame" class="target-frame hidden">
+          <div class="target-frame__name" id="target-name"></div>
+          <div class="bar bar--target">
+            <div class="bar__track"><div class="bar__fill" id="target-hp"></div></div>
+          </div>
+        </div>
+        <div id="quest-tracker" class="panel">
+          <h3>Quest Tracker</h3>
+          <ul id="quest-tracker-list"></ul>
+        </div>
+      </div>
+
       <div class="hud__right">
-        <div class="panel" id="shop-panel">
-          <h3>Upgrade Station</h3>
-          <p id="shop-text"></p>
+        <div id="dialogue-panel" class="panel hidden">
+          <h3 id="dialogue-title"></h3>
+          <div id="dialogue-text"></div>
+          <div id="dialogue-choices"></div>
+        </div>
+        <div id="vendor-panel" class="panel hidden">
+          <h3>Merchant</h3>
+          <div class="vendor-columns">
+            <div>
+              <h4>Buy</h4>
+              <ul id="vendor-buy"></ul>
+            </div>
+            <div>
+              <h4>Sell</h4>
+              <ul id="vendor-sell"></ul>
+            </div>
+          </div>
+        </div>
+        <div id="quest-log" class="panel hidden">
+          <h3>Quest Log</h3>
+          <ul id="quest-log-list"></ul>
         </div>
         <div class="panel">
-          <h3>Settings</h3>
-          <label for="sensitivity">Mouse Sensitivity</label>
-          <input id="sensitivity" type="range" min="0.001" max="0.008" step="0.0005" value="0.003" />
-          <div class="small">Current: <span id="sensitivity-value">0.003</span></div>
-        </div>
-        <div class="panel">
-          <h3>Controls (H to toggle)</h3>
-          <div class="small visible" id="help-overlay">
+          <h3>Help (H to toggle)</h3>
+          <div class="small" id="help-overlay">
             <ul>
-              <li>WASD: Move</li>
-              <li>Mouse: Look (click to lock)</li>
-              <li>Space: Jump</li>
-              <li>Shift: Dodge roll</li>
-              <li>1/2: Switch weapon</li>
-              <li>LMB: Attack</li>
-              <li>V: Toggle camera</li>
-              <li>E: Use upgrade station</li>
-              <li>Esc: Pause</li>
+              <li>WASD: Move, Q/E: Rotate</li>
+              <li>RMB drag: Rotate camera</li>
+              <li>Mouse wheel: Zoom</li>
+              <li>RMB hold: Steer & auto-face</li>
+              <li>Tab: Cycle target</li>
+              <li>LMB: Target enemy</li>
+              <li>1-6: Abilities</li>
+              <li>F: Interact / Talk</li>
+              <li>J: Quest log</li>
+              <li>O: Save</li>
             </ul>
           </div>
         </div>
       </div>
-
-      <div class="hud__center">
-        <div id="hud-message" class="message"></div>
-      </div>
     </div>
 
-    <div id="wave-banner" class="banner">Wave 1</div>
-
-    <div id="pause-menu" class="overlay">
-      <div class="overlay__box">
-        <h2>Paused</h2>
-        <button id="resume-btn" type="button">Resume</button>
-        <button id="restart-btn" type="button">Restart Run</button>
-        <button id="quit-btn" type="button">Quit</button>
-      </div>
-    </div>
+    <div id="hotbar" class="hotbar"></div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
