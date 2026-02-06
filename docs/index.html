@@ -10,8 +10,12 @@
   <div id="game-root">
     <canvas id="game-canvas" aria-label="3D world"></canvas>
 
-    <div class="hud">
-      <div class="hud__left">
+    <div class="ui-layer">
+      <div id="resources-panel" class="panel panel--resources">
+        <div class="panel__header">
+          <h3>Arcanist</h3>
+          <button class="panel__button" id="toggle-inventory">Inventory (I)</button>
+        </div>
         <canvas id="minimap" width="180" height="180" aria-label="Minimap"></canvas>
         <div class="bars">
           <div class="bar">
@@ -36,76 +40,127 @@
           <div>Gold: <span id="hud-gold">0</span></div>
           <div>Zone: <span id="hud-zone">Camp</span></div>
         </div>
-        <div class="panel">
-          <h3>Inventory</h3>
-          <div class="equipment">
-            <div>Staff: <span id="equip-staff">None</span></div>
-            <div>Robe: <span id="equip-robe">None</span></div>
-            <div>Ring: <span id="equip-ring">None</span></div>
-          </div>
-          <ul id="inventory-list"></ul>
-        </div>
       </div>
 
-      <div class="hud__center">
-        <div id="cast-bar" class="cast-bar hidden">
-          <div class="cast-bar__label" id="cast-label"></div>
-          <div class="cast-bar__track"><div class="cast-bar__fill" id="cast-fill"></div></div>
-        </div>
-        <div id="floating-text"></div>
-        <div id="target-frame" class="target-frame hidden">
-          <div class="target-frame__name" id="target-name"></div>
-          <div class="bar bar--target">
-            <div class="bar__track"><div class="bar__fill" id="target-hp"></div></div>
-          </div>
-        </div>
-        <div id="quest-tracker" class="panel">
+      <div id="quest-tracker" class="panel panel--quest">
+        <div class="panel__header">
           <h3>Quest Tracker</h3>
-          <ul id="quest-tracker-list"></ul>
+          <button class="panel__button" id="toggle-quest-log">Quest Log (J)</button>
+        </div>
+        <div id="quest-tracker-list" class="quest-list"></div>
+        <div id="quest-tracker-detail" class="quest-detail"></div>
+      </div>
+
+      <div id="combat-log" class="panel panel--combat">
+        <h3>Combat Log</h3>
+        <div id="combat-log-list" class="combat-log__list"></div>
+      </div>
+
+      <div id="compass" class="compass">
+        <div class="compass__bar"></div>
+        <div class="compass__arrow" id="compass-arrow"></div>
+        <div class="compass__label" id="compass-label"></div>
+      </div>
+
+      <div id="cast-bar" class="cast-bar hidden">
+        <div class="cast-bar__label" id="cast-label"></div>
+        <div class="cast-bar__track"><div class="cast-bar__fill" id="cast-fill"></div></div>
+      </div>
+
+      <div id="floating-text"></div>
+
+      <div id="target-frame" class="target-frame hidden">
+        <div class="target-frame__name" id="target-name"></div>
+        <div class="bar bar--target">
+          <div class="bar__track"><div class="bar__fill" id="target-hp"></div></div>
         </div>
       </div>
 
-      <div class="hud__right">
-        <div id="dialogue-panel" class="panel hidden">
-          <h3 id="dialogue-title"></h3>
-          <div id="dialogue-text"></div>
-          <div id="dialogue-choices"></div>
+      <div id="help-overlay" class="panel panel--help hidden">
+        <div class="panel__header">
+          <h3>Help & Controls</h3>
+          <button class="panel__button" id="close-help">Close</button>
         </div>
-        <div id="vendor-panel" class="panel hidden">
+        <div class="small">
+          <ul>
+            <li>WASD: Move relative to camera, Shift: Sprint</li>
+            <li>RMB drag: Rotate camera, Wheel: Zoom, Tab: Cycle target</li>
+            <li>LMB: Target, F: Interact, I: Inventory</li>
+            <li>1-8: Abilities, Q/E: Quick turn, H: Help</li>
+            <li>J: Quest Log, O: Save</li>
+          </ul>
+        </div>
+      </div>
+
+      <div id="dialogue-panel" class="panel panel--modal hidden">
+        <h3 id="dialogue-title"></h3>
+        <div id="dialogue-text"></div>
+        <div id="dialogue-choices"></div>
+      </div>
+
+      <div id="vendor-panel" class="panel panel--modal hidden">
+        <div class="panel__header">
           <h3>Merchant</h3>
-          <div class="vendor-columns">
-            <div>
-              <h4>Buy</h4>
-              <ul id="vendor-buy"></ul>
-            </div>
-            <div>
-              <h4>Sell</h4>
-              <ul id="vendor-sell"></ul>
-            </div>
+          <button class="panel__button" id="close-vendor">Close</button>
+        </div>
+        <div class="vendor-columns">
+          <div>
+            <h4>Buy</h4>
+            <ul id="vendor-buy"></ul>
           </div>
-        </div>
-        <div id="quest-log" class="panel hidden">
-          <h3>Quest Log</h3>
-          <ul id="quest-log-list"></ul>
-        </div>
-        <div class="panel">
-          <h3>Help (H to toggle)</h3>
-          <div class="small" id="help-overlay">
-            <ul>
-              <li>WASD: Move, Q/E: Rotate</li>
-              <li>RMB drag: Rotate camera</li>
-              <li>Mouse wheel: Zoom</li>
-              <li>RMB hold: Steer & auto-face</li>
-              <li>Tab: Cycle target</li>
-              <li>LMB: Target enemy</li>
-              <li>1-6: Abilities</li>
-              <li>F: Interact / Talk</li>
-              <li>J: Quest log</li>
-              <li>O: Save</li>
-            </ul>
+          <div>
+            <h4>Sell</h4>
+            <ul id="vendor-sell"></ul>
           </div>
         </div>
       </div>
+
+      <div id="quest-log" class="panel panel--modal hidden">
+        <div class="panel__header">
+          <h3>Quest Log</h3>
+          <button class="panel__button" id="close-quest-log">Close</button>
+        </div>
+        <div class="quest-log">
+          <div id="quest-log-list"></div>
+          <div id="quest-log-detail"></div>
+        </div>
+      </div>
+
+      <div id="inventory-panel" class="panel panel--modal hidden">
+        <div class="panel__header">
+          <h3>Inventory</h3>
+          <button class="panel__button" id="close-inventory">Close</button>
+        </div>
+        <div class="inventory-controls">
+          <select id="inventory-filter">
+            <option value="all">All</option>
+            <option value="weapon">Weapons</option>
+            <option value="robe">Robes</option>
+            <option value="ring">Rings</option>
+            <option value="consumable">Consumables</option>
+            <option value="material">Materials</option>
+          </select>
+          <select id="inventory-sort">
+            <option value="name">Sort: Name</option>
+            <option value="rarity">Sort: Rarity</option>
+            <option value="value">Sort: Value</option>
+          </select>
+        </div>
+        <div class="equipment-grid">
+          <div class="equipment-slot">Staff: <span id="equip-staff">None</span></div>
+          <div class="equipment-slot">Robe: <span id="equip-robe">None</span></div>
+          <div class="equipment-slot">Ring: <span id="equip-ring">None</span></div>
+        </div>
+        <ul id="inventory-list" class="inventory-list"></ul>
+      </div>
+
+      <div id="tutorial-panel" class="panel panel--tutorial">
+        <h3>Arcane Initiate</h3>
+        <div id="tutorial-text"></div>
+      </div>
+
+      <div id="ui-warning" class="panel panel--warning hidden"></div>
+      <div id="item-tooltip" class="tooltip hidden"></div>
     </div>
 
     <div id="hotbar" class="hotbar"></div>

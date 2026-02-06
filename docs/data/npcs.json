@@ -1,0 +1,68 @@
+[
+  {
+    "id": "rysa",
+    "name": "Rysa",
+    "role": "Scout Captain",
+    "pos": [-55, 1, 0],
+    "staff": false,
+    "dialogue": "scout"
+  },
+  {
+    "id": "miro",
+    "name": "Archivist Miro",
+    "role": "Historian",
+    "pos": [-48, 1, 6],
+    "staff": true,
+    "dialogue": "archivist"
+  },
+  {
+    "id": "kato",
+    "name": "Warden Kato",
+    "role": "Guard Captain",
+    "pos": [-60, 1, -6],
+    "staff": false,
+    "dialogue": "warden"
+  },
+  {
+    "id": "nera",
+    "name": "Herbalist Nera",
+    "role": "Trainer",
+    "pos": [-42, 1, 0],
+    "staff": true,
+    "dialogue": "trainer"
+  },
+  {
+    "id": "vale",
+    "name": "Courier Vale",
+    "role": "Courier",
+    "pos": [-50, 1, -8],
+    "staff": false,
+    "dialogue": "courier"
+  },
+  {
+    "id": "orra",
+    "name": "Hermit Orren",
+    "role": "Hermit",
+    "pos": [20, 1, 85],
+    "staff": true,
+    "dialogue": "hermit"
+  },
+  {
+    "id": "merchant",
+    "name": "Luma",
+    "role": "Merchant",
+    "pos": [-45, 1, 12],
+    "staff": false,
+    "dialogue": "merchant",
+    "vendor": true,
+    "stock": ["arcane_tonic", "vital_draught", "focus_ring", "nomad_staff", "mistweave_robe"]
+  },
+  {
+    "id": "scribe",
+    "name": "Scribe Ilen",
+    "role": "Scribe",
+    "pos": [-52, 1, 10],
+    "staff": true,
+    "dialogue": "archivist"
+  }
+]

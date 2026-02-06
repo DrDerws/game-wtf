@@ -1,0 +1,98 @@
+[
+  {
+    "id": "arcBolt",
+    "name": "Arc Bolt",
+    "key": "1",
+    "mana": 8,
+    "cooldown": 0,
+    "cast": 0,
+    "range": 18,
+    "requiresTarget": true,
+    "effect": "bolt",
+    "description": "Instant spark of arcane force."
+  },
+  {
+    "id": "emberLance",
+    "name": "Ember Lance",
+    "key": "2",
+    "mana": 16,
+    "cooldown": 4,
+    "cast": 1.2,
+    "range": 20,
+    "requiresTarget": true,
+    "effect": "lance",
+    "description": "Focused cast for heavy damage."
+  },
+  {
+    "id": "sigilSnare",
+    "name": "Sigil Snare",
+    "key": "3",
+    "mana": 18,
+    "cooldown": 8,
+    "cast": 0.8,
+    "range": 16,
+    "requiresTarget": true,
+    "effect": "snare",
+    "description": "Arcane trap slows the target."
+  },
+  {
+    "id": "wardShell",
+    "name": "Ward Shell",
+    "key": "4",
+    "mana": 20,
+    "cooldown": 12,
+    "cast": 0,
+    "range": 0,
+    "requiresTarget": false,
+    "effect": "shield",
+    "description": "Instant protective shell."
+  },
+  {
+    "id": "novaPulse",
+    "name": "Nova Pulse",
+    "key": "5",
+    "mana": 28,
+    "cooldown": 10,
+    "cast": 0,
+    "range": 6,
+    "requiresTarget": false,
+    "effect": "nova",
+    "description": "Short-range burst around you."
+  },
+  {
+    "id": "gloomTether",
+    "name": "Gloom Tether",
+    "key": "6",
+    "mana": 14,
+    "cooldown": 6,
+    "cast": 1.0,
+    "range": 18,
+    "requiresTarget": true,
+    "effect": "dot",
+    "description": "Lingering damage over time."
+  },
+  {
+    "id": "blinkStep",
+    "name": "Blink Step",
+    "key": "7",
+    "mana": 22,
+    "cooldown": 14,
+    "cast": 0,
+    "range": 10,
+    "requiresTarget": false,
+    "effect": "blink",
+    "description": "Short teleport to reposition."
+  },
+  {
+    "id": "astralCompanion",
+    "name": "Astral Companion",
+    "key": "8",
+    "mana": 26,
+    "cooldown": 20,
+    "cast": 1.5,
+    "range": 0,
+    "requiresTarget": false,
+    "effect": "summon",
+    "description": "Summon a helper for a time."
+  }
+]

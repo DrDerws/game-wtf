@@ -5,21 +5,25 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0a0f18);
-scene.fog = new THREE.Fog(0x0a0f18, 32, 180);
+scene.fog = new THREE.Fog(0x0a0f18, 30, 200);
 
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 300);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 320);
 const clock = new THREE.Clock();
 
-const ambient = new THREE.AmbientLight(0x89a7d9, 0.4);
+const ambient = new THREE.AmbientLight(0x8aa4d6, 0.45);
 scene.add(ambient);
-const sun = new THREE.DirectionalLight(0xf4f6ff, 0.9);
-sun.position.set(40, 60, 25);
-sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-scene.add(sun);
+const keyLight = new THREE.DirectionalLight(0xf4f6ff, 0.85);
+keyLight.position.set(40, 60, 25);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(2048, 2048);
+scene.add(keyLight);
+const rimLight = new THREE.DirectionalLight(0x4e7bd9, 0.35);
+rimLight.position.set(-30, 40, -40);
+scene.add(rimLight);
 
 const dom = {
   hpFill: document.getElementById("hud-hp"),
@@ -33,6 +37,9 @@ const dom = {
   goldText: document.getElementById("hud-gold"),
   zoneText: document.getElementById("hud-zone"),
   inventoryList: document.getElementById("inventory-list"),
+  inventoryPanel: document.getElementById("inventory-panel"),
+  inventoryFilter: document.getElementById("inventory-filter"),
+  inventorySort: document.getElementById("inventory-sort"),
   equipStaff: document.getElementById("equip-staff"),
   equipRobe: document.getElementById("equip-robe"),
   equipRing: document.getElementById("equip-ring"),
@@ -44,6 +51,7 @@ const dom = {
   targetName: document.getElementById("target-name"),
   targetHp: document.getElementById("target-hp"),
   questTracker: document.getElementById("quest-tracker-list"),
+  questTrackerDetail: document.getElementById("quest-tracker-detail"),
   dialoguePanel: document.getElementById("dialogue-panel"),
   dialogueTitle: document.getElementById("dialogue-title"),
   dialogueText: document.getElementById("dialogue-text"),
@@ -53,15 +61,28 @@ const dom = {
   vendorSell: document.getElementById("vendor-sell"),
   questLog: document.getElementById("quest-log"),
   questLogList: document.getElementById("quest-log-list"),
+  questLogDetail: document.getElementById("quest-log-detail"),
   hotbar: document.getElementById("hotbar"),
   minimap: document.getElementById("minimap"),
-  helpOverlay: document.getElementById("help-overlay")
+  helpOverlay: document.getElementById("help-overlay"),
+  tutorialText: document.getElementById("tutorial-text"),
+  warningPanel: document.getElementById("ui-warning"),
+  tooltip: document.getElementById("item-tooltip"),
+  combatLog: document.getElementById("combat-log-list"),
+  compassArrow: document.getElementById("compass-arrow"),
+  compassLabel: document.getElementById("compass-label"),
+  closeVendor: document.getElementById("close-vendor"),
+  closeQuestLog: document.getElementById("close-quest-log"),
+  closeInventory: document.getElementById("close-inventory"),
+  toggleInventory: document.getElementById("toggle-inventory"),
+  toggleQuestLog: document.getElementById("toggle-quest-log"),
+  closeHelp: document.getElementById("close-help")
 };
 
 const minimapCtx = dom.minimap.getContext("2d");
 
 const settings = {
-  zoom: 10,
+  zoom: 11,
   minZoom: 6,
   maxZoom: 18,
   cameraYaw: Math.PI / 2,
@@ -69,7 +90,10 @@ const settings = {
   cameraYawTarget: Math.PI / 2,
   cameraPitchTarget: 0.45,
   holdRmb: false,
-  rotating: false
+  rotating: false,
+  cameraSmoothing: 6,
+  turnSmoothing: 8,
+  sprintMultiplier: 1.35
 };
 
 const audioState = {
@@ -123,15 +147,16 @@ const world = {
   size: 240,
   colliders: [],
   props: [],
-  zones: []
+  zones: [],
+  markers: [],
+  objectives: {
+    cave_gate: new THREE.Vector3(0, 0, 70)
+  }
 };
 
 const input = {
   keys: new Set(),
-  mouse: { x: 0, y: 0 },
-  mouseDelta: { x: 0, y: 0 },
-  wheel: 0,
-  lastClick: 0
+  wheel: 0
 };
 
 const prng = {
@@ -144,6 +169,17 @@ const prng = {
   }
 };
 
+const dataStore = {
+  items: [],
+  spells: [],
+  quests: [],
+  npcs: [],
+  itemMap: new Map(),
+  spellMap: new Map(),
+  questMap: new Map(),
+  npcMap: new Map()
+};
+
 function randRange(min, max) {
   return min + (max - min) * prng.random();
 }
@@ -154,6 +190,18 @@ function clamp(value, min, max) {
 
 function lerp(a, b, t) {
   return a + (b - a) * t;
+}
+
+function lerpAngle(a, b, t) {
+  const diff = ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+  return a + diff * t;
+}
+
+function approach(current, target, delta) {
+  if (current < target) {
+    return Math.min(target, current + delta);
+  }
+  return Math.max(target, current - delta);
 }
 
 const groundGeo = new THREE.PlaneGeometry(world.size, world.size);
@@ -178,15 +226,18 @@ targetRing.visible = false;
 scene.add(targetRing);
 
 const particles = [];
+const uiWarnings = [];
+const combatLog = [];
 
 const player = {
   name: "Arcanist",
   pos: new THREE.Vector3(0, 1, 0),
   velocity: new THREE.Vector3(),
   yaw: 0,
+  yawTarget: 0,
   radius: 0.6,
-  speed: 7.5,
-  accel: 18,
+  speed: 7.2,
+  accel: 22,
   decel: 20,
   baseHp: 120,
   baseMana: 100,
@@ -246,209 +297,68 @@ const questState = {
   completed: []
 };
 
-const quests = [
-  {
-    id: "clearWilds",
-    title: "Cull the Stalkers",
-    giver: "Rysa",
-    type: "kill",
-    target: "stalker",
-    count: 6,
-    text: "Thin the wild stalkers prowling the forest path.",
-    reward: { gold: 25, mana: 8 }
-  },
-  {
-    id: "recoverRelics",
-    title: "Lost Camp Relics",
-    giver: "Archivist Miro",
-    type: "fetch",
-    item: "Relic Shard",
-    count: 3,
-    text: "Recover relic shards scattered near the ruins.",
-    reward: { gold: 30, xp: 80 }
-  },
-  {
-    id: "escortScribe",
-    title: "Escort the Scribe",
-    giver: "Archivist Miro",
-    type: "escort",
-    npc: "Scribe Ilen",
-    text: "Escort Scribe Ilen to the ruin gate.",
-    reward: { gold: 40, mana: 10 }
-  },
-  {
-    id: "ritualStones",
-    title: "Ritual Alignment",
-    giver: "Warden Kato",
-    type: "sequence",
-    target: "Ritual Stone",
-    count: 3,
-    text: "Activate the ritual stones in the correct order.",
-    reward: { gold: 20, xp: 90 }
-  },
-  {
-    id: "miniBoss",
-    title: "Break the Brute",
-    giver: "Warden Kato",
-    type: "kill",
-    target: "brute",
-    count: 1,
-    text: "Defeat the hulking brute near the cave mouth.",
-    reward: { gold: 60, xp: 120, item: "Caveward Ring" }
-  },
-  {
-    id: "casterHunt",
-    title: "Silent the Casters",
-    giver: "Rysa",
-    type: "kill",
-    target: "seer",
-    count: 4,
-    text: "Disrupt the rogue seers at the lake shore.",
-    reward: { gold: 35, xp: 70 }
-  },
-  {
-    id: "lakeSamples",
-    title: "Lake Residue",
-    giver: "Herbalist Nera",
-    type: "interact",
-    target: "Lake Sample",
-    count: 2,
-    text: "Collect residue samples along the lake.",
-    reward: { gold: 25, mana: 6 }
-  },
-  {
-    id: "hermitNote",
-    title: "Hermit's Note",
-    giver: "Courier Vale",
-    type: "talk",
-    target: "Hermit Orren",
-    text: "Deliver the sealed note to the hermit beyond the forest.",
-    reward: { gold: 20, xp: 50 }
-  }
-];
-
-const abilities = [
-  {
-    id: "arcBolt",
-    name: "Arc Bolt",
-    key: "1",
-    mana: 8,
-    cooldown: 0,
-    cast: 0,
-    range: 18,
-    requiresTarget: true,
-    effect: "bolt",
-    description: "Instant spark of arcane force."
-  },
-  {
-    id: "emberLance",
-    name: "Ember Lance",
-    key: "2",
-    mana: 16,
-    cooldown: 4,
-    cast: 1.2,
-    range: 20,
-    requiresTarget: true,
-    effect: "lance",
-    description: "Focused cast for heavy damage."
-  },
-  {
-    id: "sigilSnare",
-    name: "Sigil Snare",
-    key: "3",
-    mana: 18,
-    cooldown: 8,
-    cast: 0.8,
-    range: 16,
-    requiresTarget: true,
-    effect: "snare",
-    description: "Arcane trap slows the target."
-  },
-  {
-    id: "wardShell",
-    name: "Ward Shell",
-    key: "4",
-    mana: 20,
-    cooldown: 12,
-    cast: 0,
-    range: 0,
-    requiresTarget: false,
-    effect: "shield",
-    description: "Instant protective shell."
-  },
-  {
-    id: "novaPulse",
-    name: "Nova Pulse",
-    key: "5",
-    mana: 28,
-    cooldown: 10,
-    cast: 0,
-    range: 6,
-    requiresTarget: false,
-    effect: "nova",
-    description: "Short-range burst around you."
-  },
-  {
-    id: "gloomTether",
-    name: "Gloom Tether",
-    key: "6",
-    mana: 14,
-    cooldown: 6,
-    cast: 1.0,
-    range: 18,
-    requiresTarget: true,
-    effect: "dot",
-    description: "Lingering damage over time."
-  },
-  {
-    id: "blinkStep",
-    name: "Blink Step",
-    key: "7",
-    mana: 22,
-    cooldown: 14,
-    cast: 0,
-    range: 10,
-    requiresTarget: false,
-    effect: "blink",
-    description: "Short teleport to reposition."
-  },
-  {
-    id: "astralCompanion",
-    name: "Astral Companion",
-    key: "8",
-    mana: 26,
-    cooldown: 20,
-    cast: 1.5,
-    range: 0,
-    requiresTarget: false,
-    effect: "summon",
-    description: "Summon a helper for a time."
-  }
-];
-
-const abilityState = abilities.reduce((acc, ability) => {
-  acc[ability.id] = { cooldown: 0 };
-  return acc;
-}, {});
+let abilities = [];
+let abilityState = {};
 
 const lootTable = [
-  { name: "Crystal Dust", value: 6, type: "loot" },
-  { name: "Tarnished Charm", value: 10, type: "loot" },
-  { name: "Relic Shard", value: 0, type: "quest" }
+  { id: "crystal_dust", chance: 0.45 },
+  { id: "tarnished_charm", chance: 0.35 },
+  { id: "seer_eye", chance: 0.2 },
+  { id: "relic_shard", chance: 0.25 }
 ];
 
-const equipmentItems = [
-  { name: "Ashen Staff", slot: "staff", stats: { mana: 8 }, value: 40 },
-  { name: "Wayfarer Robe", slot: "robe", stats: { hp: 10 }, value: 35 },
-  { name: "Focus Ring", slot: "ring", stats: { manaRegen: 1 }, value: 30 },
-  { name: "Caveward Ring", slot: "ring", stats: { mana: 12 }, value: 60 }
-];
+const dialogueLines = {
+  scout: "The wilds are restless. Keep your eyes on the tree line.",
+  archivist: "Knowledge is a shield. Gather what we have lost.",
+  warden: "Stay sharp. The ruins do not forgive complacency.",
+  trainer: "Breathe with the ley lines. Let them guide your casts.",
+  courier: "A quick run and a quicker return keeps the camp alive.",
+  hermit: "Storms carry secrets. Don't ignore what the wind whispers.",
+  merchant: "Coin keeps the camp warm. Spend it wisely."
+};
 
-const vendorStock = [
-  { name: "Arcane Tonic", value: 15, type: "consumable", effect: "mana" },
-  { name: "Luminous Band", value: 40, type: "equipment", item: "Focus Ring" },
-  { name: "Nomad's Staff", value: 50, type: "equipment", item: "Ashen Staff" }
-];
+function showWarning(message) {
+  uiWarnings.push({ message, timer: 4 });
+}
+
+function addCombatLog(message) {
+  combatLog.unshift({ message, timer: 8 });
+  if (combatLog.length > 6) {
+    combatLog.pop();
+  }
+}
+
+function getItemById(id) {
+  const item = dataStore.itemMap.get(id);
+  if (!item) {
+    showWarning(`Missing item: ${id}`);
+  }
+  return item;
+}
+
+function getQuestById(id) {
+  const quest = dataStore.questMap.get(id);
+  if (!quest) {
+    showWarning(`Missing quest: ${id}`);
+  }
+  return quest;
+}
+
+function getSpellById(id) {
+  const spell = dataStore.spellMap.get(id);
+  if (!spell) {
+    showWarning(`Missing spell: ${id}`);
+  }
+  return spell;
+}
+
+function getNpcById(id) {
+  const npc = dataStore.npcMap.get(id);
+  if (!npc) {
+    showWarning(`Missing NPC: ${id}`);
+  }
+  return npc;
+}
 
 function createHumanoid({ body, accent, height = 1.5, role = "npc", staff = false, scale = 1 }) {
   const group = new THREE.Group();
@@ -524,6 +434,22 @@ function addEnemyProps(group, type) {
     tail.position.set(0, 0.6, -0.4);
     tail.rotation.x = Math.PI / 4;
     group.add(tail);
+  }
+  if (type === "raider") {
+    const spikes = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.2, 0.2), materials.enemyRed);
+    spikes.position.set(0, 1.6, -0.2);
+    group.add(spikes);
+  }
+  if (type === "sprinter") {
+    const crest = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.15, 0.4), materials.enemyGreen);
+    crest.position.set(0, 1.7, 0.1);
+    group.add(crest);
+  }
+  if (type === "channeler") {
+    const halo = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.05, 8, 16), materials.glow);
+    halo.position.set(0, 1.9, 0);
+    halo.rotation.x = Math.PI / 2;
+    group.add(halo);
   }
 }
 
@@ -616,6 +542,29 @@ function buildWorld() {
   }
 }
 
+function createQuestMarker(text, color) {
+  const size = 64;
+  const canvasEl = document.createElement("canvas");
+  canvasEl.width = size;
+  canvasEl.height = size;
+  const ctx = canvasEl.getContext("2d");
+  ctx.clearRect(0, 0, size, size);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2 - 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#0b0f18";
+  ctx.font = "bold 36px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, size / 2, size / 2);
+  const texture = new THREE.CanvasTexture(canvasEl);
+  const material = new THREE.SpriteMaterial({ map: texture, depthTest: false });
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.set(1.4, 1.4, 1.4);
+  return sprite;
+}
+
 function createEnemy(def) {
   const mesh = createHumanoid({ body: def.material, accent: materials.glow, height: def.height, role: "enemy" });
   addEnemyProps(mesh, def.type);
@@ -644,7 +593,10 @@ function createEnemy(def) {
     slow: 0,
     dot: 0,
     dotTimer: 0,
-    fleeing: false
+    fleeing: false,
+    telegraph: 0,
+    respawn: 0,
+    ranged: def.ranged || false
   };
   enemies.push(enemy);
   return enemy;
@@ -661,9 +613,11 @@ function createNpc(def) {
     mesh,
     pos: mesh.position,
     dialogue: def.dialogue,
-    vendor: def.vendor
+    vendor: def.vendor,
+    stock: def.stock || []
   };
   npcs.push(npc);
+  dataStore.npcMap.set(def.id, npc);
   return npc;
 }
 
@@ -676,14 +630,13 @@ function createInteractable(def) {
 }
 
 function setupActors() {
-  createNpc({ id: "rysa", name: "Rysa", role: "Scout Captain", pos: new THREE.Vector3(-55, 1, 0), staff: false, dialogue: "scout" });
-  createNpc({ id: "miro", name: "Archivist Miro", role: "Historian", pos: new THREE.Vector3(-48, 1, 6), staff: true, dialogue: "archivist" });
-  createNpc({ id: "kato", name: "Warden Kato", role: "Guard Captain", pos: new THREE.Vector3(-60, 1, -6), staff: false, dialogue: "warden" });
-  createNpc({ id: "nera", name: "Herbalist Nera", role: "Trainer", pos: new THREE.Vector3(-42, 1, 0), staff: true, dialogue: "trainer" });
-  createNpc({ id: "vale", name: "Courier Vale", role: "Courier", pos: new THREE.Vector3(-50, 1, -8), staff: false, dialogue: "courier" });
-  createNpc({ id: "orra", name: "Hermit Orren", role: "Hermit", pos: new THREE.Vector3(20, 1, 85), staff: true, dialogue: "hermit" });
-  createNpc({ id: "merchant", name: "Luma", role: "Merchant", pos: new THREE.Vector3(-45, 1, 12), staff: false, dialogue: "merchant", vendor: true });
-  escort.npc = createNpc({ id: "scribe", name: "Scribe Ilen", role: "Scribe", pos: new THREE.Vector3(-52, 1, 10), staff: true, dialogue: "archivist" });
+  dataStore.npcs.forEach((npcDef) => {
+    const pos = new THREE.Vector3(...npcDef.pos);
+    const npc = createNpc({ ...npcDef, pos });
+    if (npc.id === "scribe") {
+      escort.npc = npc;
+    }
+  });
 
   createInteractable({ id: "ritual1", name: "Ritual Stone", pos: new THREE.Vector3(55, 0, 55), type: "ritual", order: 1 });
   createInteractable({ id: "ritual2", name: "Ritual Stone", pos: new THREE.Vector3(68, 0, 70), type: "ritual", order: 2 });
@@ -698,12 +651,15 @@ function spawnEnemies() {
     { id: "stalker1", name: "Wild Stalker", type: "stalker", pos: new THREE.Vector3(0, 1, -25), material: materials.enemyRed, hp: 70, damage: 7, speed: 4.5, range: 2.2, aggro: 14, height: 1.5 },
     { id: "stalker2", name: "Wild Stalker", type: "stalker", pos: new THREE.Vector3(12, 1, -40), material: materials.enemyRed, hp: 70, damage: 7, speed: 4.5, range: 2.2, aggro: 14, height: 1.5 },
     { id: "scout1", name: "Razor Scout", type: "scout", pos: new THREE.Vector3(35, 1, -20), material: materials.enemyGreen, hp: 60, damage: 6, speed: 6.2, range: 2, aggro: 12, height: 1.45 },
-    { id: "seer1", name: "Rogue Seer", type: "seer", pos: new THREE.Vector3(65, 1, -70), material: materials.enemyTeal, hp: 65, damage: 8, speed: 3.5, range: 14, aggro: 18, height: 1.6 },
-    { id: "seer2", name: "Rogue Seer", type: "seer", pos: new THREE.Vector3(75, 1, -90), material: materials.enemyTeal, hp: 65, damage: 8, speed: 3.5, range: 14, aggro: 18, height: 1.6 },
-    { id: "brute1", name: "Cave Brute", type: "brute", pos: new THREE.Vector3(-5, 1, 75), material: materials.enemyPurple, hp: 140, damage: 12, speed: 2.8, range: 2.8, aggro: 16, height: 1.8 },
-    { id: "guardian", name: "Ruin Guardian", type: "guardian", pos: new THREE.Vector3(70, 1, 60), material: materials.enemyGold, hp: 110, damage: 10, speed: 3.2, range: 2.4, aggro: 16, height: 1.7 },
-    { id: "shade", name: "Glide Shade", type: "flying", pos: new THREE.Vector3(50, 2, -10), material: materials.enemyBlack, hp: 55, damage: 7, speed: 4, range: 10, aggro: 16, height: 1.2 },
-    { id: "seer3", name: "Rogue Seer", type: "seer", pos: new THREE.Vector3(58, 1, -95), material: materials.enemyTeal, hp: 65, damage: 8, speed: 3.5, range: 14, aggro: 18, height: 1.6 }
+    { id: "seer1", name: "Rogue Seer", type: "seer", pos: new THREE.Vector3(65, 1, -70), material: materials.enemyTeal, hp: 65, damage: 8, speed: 3.5, range: 14, aggro: 18, height: 1.6, ranged: true },
+    { id: "seer2", name: "Rogue Seer", type: "seer", pos: new THREE.Vector3(75, 1, -90), material: materials.enemyTeal, hp: 65, damage: 8, speed: 3.5, range: 14, aggro: 18, height: 1.6, ranged: true },
+    { id: "brute1", name: "Cave Brute", type: "brute", pos: new THREE.Vector3(-5, 1, 75), material: materials.enemyPurple, hp: 160, damage: 14, speed: 2.6, range: 2.8, aggro: 16, height: 1.9 },
+    { id: "guardian", name: "Ruin Guardian", type: "guardian", pos: new THREE.Vector3(70, 1, 60), material: materials.enemyGold, hp: 120, damage: 11, speed: 3.1, range: 2.4, aggro: 16, height: 1.7 },
+    { id: "shade", name: "Glide Shade", type: "flying", pos: new THREE.Vector3(50, 2, -10), material: materials.enemyBlack, hp: 55, damage: 7, speed: 4.4, range: 10, aggro: 16, height: 1.2, ranged: true },
+    { id: "seer3", name: "Rogue Seer", type: "seer", pos: new THREE.Vector3(58, 1, -95), material: materials.enemyTeal, hp: 65, damage: 8, speed: 3.5, range: 14, aggro: 18, height: 1.6, ranged: true },
+    { id: "raider", name: "Feral Raider", type: "raider", pos: new THREE.Vector3(20, 1, -60), material: materials.enemyRed, hp: 80, damage: 9, speed: 5.4, range: 2.2, aggro: 15, height: 1.55 },
+    { id: "sprinter", name: "Wild Sprinter", type: "sprinter", pos: new THREE.Vector3(5, 1, -55), material: materials.enemyGreen, hp: 50, damage: 6, speed: 7.4, range: 1.8, aggro: 14, height: 1.4 },
+    { id: "channeler", name: "Mist Channeler", type: "channeler", pos: new THREE.Vector3(80, 1, -75), material: materials.enemyGold, hp: 70, damage: 10, speed: 3, range: 16, aggro: 18, height: 1.6, ranged: true }
   ];
 
   spawns.forEach((spawn) => {
@@ -727,26 +683,50 @@ function setupHotbar() {
   });
 }
 
+function showFloatingText(text, position) {
+  const el = document.createElement("div");
+  el.className = "floating";
+  el.textContent = text;
+  const coords = toScreenPosition(position);
+  if (!coords) return;
+  el.style.left = `${coords.x}px`;
+  el.style.top = `${coords.y}px`;
+  dom.floatingText.appendChild(el);
+  setTimeout(() => el.remove(), 1200);
+}
+
 function addQuestProgress(id, amount = 1) {
-  const quest = quests.find((q) => q.id === id);
+  const quest = getQuestById(id);
   if (!quest) return;
   const state = questState.quests[id];
   if (!state || state.status !== "active") return;
-  state.progress = clamp(state.progress + amount, 0, quest.count || 1);
-  if (state.progress >= (quest.count || 1)) {
-    state.status = "complete";
-    questState.completed.push(id);
+  const step = quest.steps[state.stepIndex];
+  if (!step) return;
+  state.progress = clamp(state.progress + amount, 0, step.count || 1);
+  if (state.progress >= (step.count || 1)) {
+    state.stepIndex += 1;
+    state.progress = 0;
+    if (state.stepIndex >= quest.steps.length) {
+      state.status = "complete";
+      questState.completed.push(id);
+      addCombatLog(`Quest complete: ${quest.title}`);
+    } else {
+      addCombatLog(`Quest updated: ${quest.title}`);
+    }
   }
 }
 
 function startQuest(id) {
   if (questState.quests[id]) return;
-  questState.quests[id] = { status: "active", progress: 0 };
+  const quest = getQuestById(id);
+  if (!quest) return;
+  questState.quests[id] = { status: "active", progress: 0, stepIndex: 0 };
   questState.active.push(id);
+  addCombatLog(`Quest accepted: ${quest.title}`);
 }
 
 function turnInQuest(id) {
-  const quest = quests.find((q) => q.id === id);
+  const quest = getQuestById(id);
   if (!quest) return;
   const state = questState.quests[id];
   if (!state || state.status !== "complete") return;
@@ -754,9 +734,10 @@ function turnInQuest(id) {
   player.gold += quest.reward.gold || 0;
   if (quest.reward.mana) player.baseMana += quest.reward.mana;
   if (quest.reward.xp) awardXp(quest.reward.xp);
-  if (quest.reward.item) giveItem(quest.reward.item);
+  if (quest.reward.item) giveItem(quest.reward.item, 1);
   questState.active = questState.active.filter((activeId) => activeId !== id);
   recalcStats();
+  addCombatLog(`Quest turned in: ${quest.title}`);
 }
 
 function awardXp(amount) {
@@ -773,82 +754,104 @@ function awardXp(amount) {
   }
 }
 
-function giveItem(name) {
-  const equipment = equipmentItems.find((item) => item.name === name);
-  if (equipment) {
-    player.inventory.push({ name: equipment.name, type: "equipment", slot: equipment.slot, stats: equipment.stats, value: equipment.value });
-    return;
+function giveItem(id, quantity = 1) {
+  const item = getItemById(id);
+  if (!item) return;
+  const entry = player.inventory.find((inv) => inv.id === id);
+  if (entry) {
+    entry.quantity += quantity;
+  } else {
+    player.inventory.push({ id, quantity });
   }
-  player.inventory.push({ name, type: "loot", value: 6 });
 }
 
-function equipItem(item) {
-  if (!item.slot) return;
-  player.equipment[item.slot] = item;
+function removeItem(id, quantity = 1) {
+  const index = player.inventory.findIndex((item) => item.id === id);
+  if (index >= 0) {
+    player.inventory[index].quantity -= quantity;
+    if (player.inventory[index].quantity <= 0) {
+      player.inventory.splice(index, 1);
+    }
+  }
+}
+
+function equipItem(itemId) {
+  const item = getItemById(itemId);
+  if (!item || !item.slot) return;
+  player.equipment[item.slot] = item.id;
+  addCombatLog(`Equipped: ${item.name}`);
   recalcStats();
 }
 
-function removeLoot(name) {
-  const index = player.inventory.findIndex((item) => item.name === name);
-  if (index >= 0) {
-    player.inventory.splice(index, 1);
-  }
+function useItem(itemId) {
+  const item = getItemById(itemId);
+  if (!item || item.type !== "consumable") return;
+  if (item.stats?.mana) player.mana = Math.min(player.maxMana, player.mana + item.stats.mana);
+  if (item.stats?.hp) player.hp = Math.min(player.maxHp, player.hp + item.stats.hp);
+  removeItem(itemId, 1);
+  addCombatLog(`Used: ${item.name}`);
 }
 
 function recalcStats() {
   let bonusHp = 0;
   let bonusMana = 0;
   let bonusRegen = 0;
-  player.spellPower = 1;
-  Object.values(player.equipment).forEach((item) => {
-    if (!item) return;
-    if (item.stats?.hp) bonusHp += item.stats.hp;
-    if (item.stats?.mana) bonusMana += item.stats.mana;
-    if (item.stats?.manaRegen) bonusRegen += item.stats.manaRegen;
+  let bonusSpellPower = 0;
+
+  Object.values(player.equipment).forEach((itemId) => {
+    if (!itemId) return;
+    const item = getItemById(itemId);
+    if (!item?.stats) return;
+    bonusHp += item.stats.hp || 0;
+    bonusMana += item.stats.mana || 0;
+    bonusRegen += item.stats.manaRegen || 0;
+    bonusSpellPower += item.stats.spellPower || 0;
   });
-  player.perks.forEach((perk) => {
-    if (perk === "vigor") bonusHp += 10;
-    if (perk === "focus") bonusMana += 10;
-    if (perk === "flow") bonusRegen += 2;
-    if (perk === "might") player.spellPower += 0.15;
-  });
+
   player.maxHp = player.baseHp + bonusHp;
   player.maxMana = player.baseMana + bonusMana;
   player.manaRegen = player.baseManaRegen + bonusRegen;
   player.manaRegenOoc = player.baseManaRegenOoc + bonusRegen * 1.5;
-  player.hp = Math.min(player.hp, player.maxHp);
-  player.mana = Math.min(player.mana, player.maxMana);
+  player.spellPower = 1 + bonusSpellPower;
+  player.hp = clamp(player.hp, 0, player.maxHp);
+  player.mana = clamp(player.mana, 0, player.maxMana);
 }
 
 function openVendor(npc) {
-  dom.vendorPanel.classList.remove("hidden");
+  openPanel("vendor");
   dom.vendorBuy.innerHTML = "";
   dom.vendorSell.innerHTML = "";
-  vendorStock.forEach((stock) => {
+  const stock = npc.stock || [];
+  stock.forEach((itemId) => {
+    const item = getItemById(itemId);
+    if (!item) return;
     const li = document.createElement("li");
     const button = document.createElement("button");
-    button.textContent = `${stock.name} (${stock.value}g)`;
+    button.textContent = `${item.name} (${item.value}g)`;
     button.addEventListener("click", () => {
-      if (player.gold < stock.value) return;
-      player.gold -= stock.value;
-      if (stock.type === "equipment") {
-        giveItem(stock.item);
+      if (player.gold >= item.value) {
+        player.gold -= item.value;
+        giveItem(item.id, 1);
+        addCombatLog(`Purchased ${item.name}`);
       } else {
-        player.mana = Math.min(player.maxMana, player.mana + 25);
+        showWarning("Not enough gold.");
       }
-      playTone(720, 0.08, "triangle");
     });
     li.appendChild(button);
     dom.vendorBuy.appendChild(li);
   });
 
-  player.inventory.forEach((item) => {
+  player.inventory.forEach((entry) => {
+    const item = getItemById(entry.id);
+    if (!item) return;
     const li = document.createElement("li");
     const button = document.createElement("button");
-    button.textContent = `${item.name} (+${item.value || 5}g)`;
+    button.textContent = `${item.name} x${entry.quantity} (${Math.floor(item.value / 2)}g)`;
     button.addEventListener("click", () => {
-      player.gold += item.value || 5;
-      removeLoot(item.name);
+      removeItem(entry.id, 1);
+      player.gold += Math.floor(item.value / 2);
+      addCombatLog(`Sold ${item.name}`);
+      openVendor(npc);
     });
     li.appendChild(button);
     dom.vendorSell.appendChild(li);
@@ -860,23 +863,21 @@ function closeVendor() {
 }
 
 function showPerkChoice() {
-  if (player.talents <= 0) return;
   dom.dialoguePanel.classList.remove("hidden");
   dom.dialogueTitle.textContent = "Perk Choice";
   dom.dialogueText.textContent = "Select a perk to refine your arcane path.";
   dom.dialogueChoices.innerHTML = "";
   const perks = [
-    { id: "vigor", label: "Vigor (+10 Max Health)" },
-    { id: "focus", label: "Focus (+10 Max Mana)" },
-    { id: "flow", label: "Flow (+2 Mana Regen)" },
-    { id: "might", label: "Might (+15% Spell Power)" }
+    { name: "Focused Mind", effect: () => (player.baseMana += 10) },
+    { name: "Ritual Guard", effect: () => (player.baseHp += 12) },
+    { name: "Quickened", effect: () => (player.speed += 0.5) }
   ];
   perks.forEach((perk) => {
     const button = document.createElement("button");
-    button.textContent = perk.label;
+    button.textContent = perk.name;
     button.addEventListener("click", () => {
-      player.perks.push(perk.id);
-      player.talents -= 1;
+      perk.effect();
+      player.talents = Math.max(0, player.talents - 1);
       recalcStats();
       dom.dialoguePanel.classList.add("hidden");
     });
@@ -885,25 +886,16 @@ function showPerkChoice() {
 }
 
 function openDialogue(npc) {
-  closeVendor();
-  dom.dialoguePanel.classList.remove("hidden");
+  openPanel("dialogue");
   dom.dialogueTitle.textContent = `${npc.name} - ${npc.role}`;
   dom.dialogueChoices.innerHTML = "";
-
-  const availableQuests = quests.filter((quest) => quest.giver === npc.name && !questState.quests[quest.id]);
-  const completedQuests = quests.filter((quest) => quest.giver === npc.name && questState.quests[quest.id]?.status === "complete");
-
-  const lines = {
-    scout: "The wilds are restless. Keep the paths clear and we can all breathe.",
-    archivist: "The ruins whisper. Bring me pieces and I can read them.",
-    warden: "We guard the gate. Prove your strength and I'll reward you.",
-    trainer: "Channel your flow. Training starts with curiosity.",
-    courier: "Messages keep the camp alive. Care to help?",
-    hermit: "Rarely do I speak. But your note... it is familiar.",
-    merchant: "Supplies for the road. Gold for the craft."
-  };
-
-  dom.dialogueText.textContent = lines[npc.dialogue] || "...";
+  const availableQuests = dataStore.quests.filter(
+    (quest) => quest.giver === npc.id && !questState.quests[quest.id]
+  );
+  const completedQuests = dataStore.quests.filter(
+    (quest) => quest.giver === npc.id && questState.quests[quest.id]?.status === "complete"
+  );
+  dom.dialogueText.textContent = dialogueLines[npc.dialogue] || "...";
 
   availableQuests.forEach((quest) => {
     const button = document.createElement("button");
@@ -914,7 +906,6 @@ function openDialogue(npc) {
     });
     dom.dialogueChoices.appendChild(button);
   });
-
   completedQuests.forEach((quest) => {
     const button = document.createElement("button");
     button.textContent = `Complete: ${quest.title}`;
@@ -924,35 +915,51 @@ function openDialogue(npc) {
     });
     dom.dialogueChoices.appendChild(button);
   });
-
   if (npc.vendor) {
     const button = document.createElement("button");
-    button.textContent = "Browse wares";
+    button.textContent = "Browse goods";
     button.addEventListener("click", () => openVendor(npc));
     dom.dialogueChoices.appendChild(button);
   }
-
   const closeBtn = document.createElement("button");
   closeBtn.textContent = "Close";
   closeBtn.addEventListener("click", () => dom.dialoguePanel.classList.add("hidden"));
   dom.dialogueChoices.appendChild(closeBtn);
 }
 
-function showQuestLog() {
-  dom.questLog.classList.remove("hidden");
+function updateQuestLog() {
   dom.questLogList.innerHTML = "";
-  quests.forEach((quest) => {
+  dom.questLogDetail.innerHTML = "";
+  dataStore.quests.forEach((quest) => {
     const state = questState.quests[quest.id];
     if (!state) return;
-    const li = document.createElement("li");
-    li.textContent = `${quest.title} - ${state.status} (${state.progress}/${quest.count || 1})`;
-    dom.questLogList.appendChild(li);
+    const entry = document.createElement("div");
+    entry.className = "quest-log__entry";
+    entry.textContent = `${quest.title} (${state.status})`;
+    entry.addEventListener("click", () => {
+      document.querySelectorAll(".quest-log__entry").forEach((el) => el.classList.remove("active"));
+      entry.classList.add("active");
+      renderQuestDetail(dom.questLogDetail, quest, state);
+    });
+    dom.questLogList.appendChild(entry);
   });
+}
+
+function renderQuestDetail(container, quest, state) {
+  const step = quest.steps[state.stepIndex] || quest.steps[quest.steps.length - 1];
+  container.innerHTML = `
+    <h4>${quest.title}</h4>
+    <p>${quest.premise}</p>
+    <p><strong>Current:</strong> ${step?.text || ""}</p>
+    <p><strong>Progress:</strong> ${state.progress}/${step?.count || 1}</p>
+    <p><strong>Reward:</strong> ${quest.reward.gold || 0}g, ${quest.reward.xp || 0}xp</p>
+  `;
 }
 
 function toggleQuestLog() {
   if (dom.questLog.classList.contains("hidden")) {
-    showQuestLog();
+    openPanel("questLog");
+    updateQuestLog();
   } else {
     dom.questLog.classList.add("hidden");
   }
@@ -960,27 +967,50 @@ function toggleQuestLog() {
 
 function updateQuestTracker() {
   dom.questTracker.innerHTML = "";
+  dom.questTrackerDetail.innerHTML = "";
   questState.active.forEach((id) => {
-    const quest = quests.find((q) => q.id === id);
+    const quest = getQuestById(id);
     if (!quest) return;
     const state = questState.quests[id];
-    const li = document.createElement("li");
-    const progress = quest.count ? `${state.progress}/${quest.count}` : state.status;
-    li.textContent = `${quest.title}: ${progress}`;
-    dom.questTracker.appendChild(li);
+    const step = quest.steps[state.stepIndex];
+    const progress = step?.count ? `${state.progress}/${step.count}` : state.status;
+    const item = document.createElement("div");
+    item.className = "quest-item";
+    item.textContent = `${quest.title}: ${progress}`;
+    dom.questTracker.appendChild(item);
+    if (!dom.questTrackerDetail.innerHTML) {
+      dom.questTrackerDetail.innerHTML = `<strong>${step?.text || ""}</strong>`;
+    }
+  });
+}
+
+function handleQuestEvent(type, target) {
+  questState.active.forEach((questId) => {
+    const quest = getQuestById(questId);
+    if (!quest) return;
+    const state = questState.quests[questId];
+    const step = quest.steps[state.stepIndex];
+    if (!step || step.type !== type) return;
+    if (step.target !== target) return;
+    addQuestProgress(questId);
   });
 }
 
 function attemptCast(ability) {
   if (player.globalCooldown > 0 || player.cast) return;
-  if (abilityState[ability.id].cooldown > 0) return;
-  if (player.mana < ability.mana) return;
+  const state = abilityState[ability.id];
+  if (!state || state.cooldown > 0) return;
+  if (player.mana < ability.mana) {
+    showWarning("Not enough mana.");
+    return;
+  }
   if (ability.requiresTarget) {
-    if (!player.target) return;
-    if (player.target && player.target.hp <= 0) return;
+    if (!player.target || player.target.hp <= 0) return;
     if (player.pos.distanceTo(player.target.pos) > ability.range) return;
   }
 
+  player.mana -= ability.mana;
+  player.globalCooldown = 0.8;
   if (ability.cast > 0) {
     player.cast = {
       ability,
@@ -989,75 +1019,56 @@ function attemptCast(ability) {
   } else {
     executeAbility(ability);
   }
+  abilityState[ability.id].cooldown = ability.cooldown;
+  addCombatLog(`Cast ${ability.name}`);
 }
 
 function executeAbility(ability) {
-  player.mana = Math.max(0, player.mana - ability.mana);
-  player.fatigue = clamp(player.fatigue + 12, 0, player.maxFatigue);
-  player.globalCooldown = 1.2;
-  abilityState[ability.id].cooldown = ability.cooldown;
-  player.inCombatTimer = 6;
-  playTone(660, 0.08, "triangle");
-
-  switch (ability.effect) {
-    case "bolt":
-      spawnProjectile(player, player.target, 18, 22 * player.spellPower, 14, 0x8cd3ff);
-      break;
-    case "lance":
-      spawnProjectile(player, player.target, 20, 32 * player.spellPower, 20, 0xffa96b);
-      break;
-    case "snare":
-      applyDebuff(player.target, { slow: 0.5, duration: 4 });
-      spawnSigil(player.target.pos, 0x5ecbff);
-      break;
-    case "shield":
-      player.shield = Math.min(45, player.shield + 30);
-      spawnBurst(player.pos, 0x6bf9ff);
-      break;
-    case "nova":
-      spawnNova(player.pos, 6, 20 * player.spellPower, 0xa7b7ff);
-      break;
-    case "dot":
-      applyDebuff(player.target, { dot: 4 * player.spellPower, duration: 6, tick: 1 });
-      spawnSigil(player.target.pos, 0x9a7bff);
-      break;
-    case "blink":
-      blinkPlayer();
-      spawnBurst(player.pos, 0x7bb6ff);
-      break;
-    case "summon":
-      summonCompanion();
-      break;
-    default:
-      break;
+  player.cast = null;
+  if (ability.effect === "bolt") {
+    spawnProjectile(player, player.target, 18, 22 * player.spellPower, 14, 0x8cd3ff);
   }
-}
-
-function blinkPlayer() {
-  const direction = new THREE.Vector3(Math.sin(settings.cameraYaw), 0, Math.cos(settings.cameraYaw));
-  const targetPos = player.pos.clone().add(direction.multiplyScalar(6));
-  if (!resolveCollisions(targetPos, player.radius)) {
-    player.pos.copy(targetPos);
-    player.mesh.position.copy(player.pos);
+  if (ability.effect === "lance") {
+    spawnProjectile(player, player.target, 20, 32 * player.spellPower, 20, 0xffa96b);
   }
-}
-
-function summonCompanion() {
-  const mesh = createHumanoid({ body: materials.glow, accent: materials.enemyTeal, height: 1.2, role: "summon", staff: false, scale: 0.9 });
-  mesh.position.copy(player.pos).add(new THREE.Vector3(1.2, 0, 1));
-  scene.add(mesh);
-  summoned.push({
-    mesh,
-    pos: mesh.position,
-    timer: 12,
-    attackTimer: 0
-  });
+  if (ability.effect === "snare") {
+    applyDebuff(player.target, { slow: 0.5, duration: 4 });
+    spawnSigil(player.target.pos, 0x5ecbff);
+  }
+  if (ability.effect === "shield") {
+    player.shield = 40 * player.spellPower;
+    spawnSigil(player.pos, 0x7dd7ff);
+  }
+  if (ability.effect === "nova") {
+    enemies.forEach((enemy) => {
+      if (enemy.hp > 0 && enemy.pos.distanceTo(player.pos) < 6) {
+        applyDamage(enemy, 18 * player.spellPower);
+      }
+    });
+    spawnNova(player.pos, 0x8cd3ff);
+  }
+  if (ability.effect === "dot") {
+    applyDebuff(player.target, { dot: 4 * player.spellPower, duration: 6, tick: 1 });
+    spawnSigil(player.target.pos, 0x9a7bff);
+  }
+  if (ability.effect === "blink") {
+    const direction = new THREE.Vector3(Math.sin(settings.cameraYaw), 0, Math.cos(settings.cameraYaw));
+    const targetPos = player.pos.clone().add(direction.multiplyScalar(6));
+    if (!resolveCollisions(targetPos, player.radius)) {
+      player.pos.copy(targetPos);
+      player.mesh.position.copy(player.pos);
+    }
+    spawnSigil(player.pos, 0x7dd7ff);
+  }
+  if (ability.effect === "summon") {
+    summonCompanion();
+  }
 }
 
 function spawnProjectile(source, target, speed, damage, size, color) {
   if (!target) return;
-  const geometry = new THREE.SphereGeometry(size * 0.04, 8, 8);
-  const material = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.7 });
+  const geometry = new THREE.SphereGeometry(0.15, 8, 8);
+  const material = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.6 });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.position.copy(source.pos).add(new THREE.Vector3(0, 1.1, 0));
   scene.add(mesh);
@@ -1065,113 +1076,118 @@ function spawnProjectile(source, target, speed, damage, size, color) {
   projectiles.push({ mesh, velocity: dir.multiplyScalar(speed), damage, source, target, life: 3 });
 }
 
+function spawnEnemyProjectile(source, target, speed, damage, color) {
+  if (!target) return;
+  const geometry = new THREE.SphereGeometry(0.18, 8, 8);
+  const material = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.5 });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.copy(source.pos).add(new THREE.Vector3(0, 1.2, 0));
+  scene.add(mesh);
+  const dir = target.pos.clone().sub(source.pos).setY(0).normalize();
+  projectiles.push({ mesh, velocity: dir.multiplyScalar(speed), damage, source, target, enemy: true, life: 3 });
+}
+
 function spawnSigil(position, color) {
-  const geometry = new THREE.RingGeometry(0.6, 1.1, 20);
-  const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.rotation.x = -Math.PI / 2;
-  mesh.position.copy(position).add(new THREE.Vector3(0, 0.05, 0));
-  scene.add(mesh);
-  particles.push({ mesh, life: 1.2 });
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(0.6, 0.08, 10, 20),
+    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.7 })
+  );
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.copy(position).setY(0.2);
+  scene.add(ring);
+  particles.push({ mesh: ring, life: 1, fade: true });
 }
 
-function spawnBurst(position, color) {
-  const geometry = new THREE.SphereGeometry(0.2, 10, 10);
-  const material = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 1 });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.copy(position).add(new THREE.Vector3(0, 1.2, 0));
-  scene.add(mesh);
-  particles.push({ mesh, life: 0.6, grow: 3.5 });
+function spawnNova(position, color) {
+  const sphere = new THREE.Mesh(
+    new THREE.SphereGeometry(0.2, 10, 10),
+    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.8, transparent: true, opacity: 0.8 })
+  );
+  sphere.position.copy(position).setY(1);
+  scene.add(sphere);
+  particles.push({ mesh: sphere, life: 0.6, expand: 6 });
 }
 
-function spawnNova(position, radius, damage, color) {
-  enemies.forEach((enemy) => {
-    if (enemy.hp <= 0) return;
-    if (enemy.pos.distanceTo(position) <= radius) {
-      applyDamage(enemy, damage);
+function applyDebuff(target, { slow = 0, duration = 0, dot = 0, tick = 1 }) {
+  if (!target) return;
+  if (slow > 0) {
+    target.slow = slow;
+    target.slowTimer = duration;
+  }
+  if (dot > 0) {
+    target.dot = dot;
+    target.dotTimer = duration;
+    target.dotTick = tick;
+    target.dotTickTimer = tick;
+  }
+}
+
+function applyDamage(target, amount) {
+  if (!target || target.hp <= 0) return;
+  target.hp -= amount;
+  target.hp = Math.max(0, target.hp);
+  player.inCombatTimer = 6;
+  showFloatingText(`-${Math.floor(amount)}`, target.pos.clone().add(new THREE.Vector3(0, 1.6, 0)));
+  if (target.hp <= 0) {
+    if (target === player) {
+      addCombatLog("You collapse and retreat to camp.");
+      player.hp = Math.floor(player.maxHp * 0.6);
+      player.mana = Math.floor(player.maxMana * 0.5);
+      player.pos.set(-50, 1, 0);
+      player.mesh.position.copy(player.pos);
+      player.target = null;
+    } else {
+      handleEnemyDown(target);
     }
-  });
-  const geometry = new THREE.RingGeometry(radius * 0.2, radius, 30);
-  const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7, side: THREE.DoubleSide });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.rotation.x = -Math.PI / 2;
-  mesh.position.copy(position).add(new THREE.Vector3(0, 0.05, 0));
-  scene.add(mesh);
-  particles.push({ mesh, life: 0.8, expand: 1.8 });
-}
-
-function applyDebuff(enemy, debuff) {
-  if (!enemy) return;
-  if (debuff.slow) {
-    enemy.slow = Math.max(enemy.slow, debuff.slow);
-    enemy.slowTimer = debuff.duration;
-  }
-  if (debuff.dot) {
-    enemy.dot = debuff.dot;
-    enemy.dotTimer = debuff.duration;
-    enemy.dotTick = debuff.tick;
-    enemy.dotTickTimer = debuff.tick;
   }
 }
 
-function applyDamage(enemy, amount) {
-  if (!enemy || enemy.hp <= 0) return;
-  enemy.hp -= amount;
-  if (enemy.hp <= 0) {
-    enemy.hp = 0;
-    handleEnemyDefeat(enemy);
-  }
-  spawnFloatingText(`-${amount}`, enemy.pos);
-}
-
-function spawnFloatingText(text, position) {
-  const div = document.createElement("div");
-  div.className = "floating";
-  div.textContent = text;
-  dom.floatingText.appendChild(div);
-  const screen = worldToScreen(position.clone().add(new THREE.Vector3(0, 1.8, 0)));
-  div.style.left = `${screen.x}px`;
-  div.style.top = `${screen.y}px`;
-  setTimeout(() => div.remove(), 1200);
-}
-
-function worldToScreen(position) {
-  const vector = position.project(camera);
-  const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
-  const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
-  return { x, y };
-}
-
-function handleEnemyDefeat(enemy) {
+function handleEnemyDown(enemy) {
+  enemy.state = "down";
   enemy.mesh.visible = false;
-  enemy.state = "dead";
-  awardXp(25);
-  dropLoot(enemy.pos);
-  if (enemy.type === "stalker") addQuestProgress("clearWilds");
-  if (enemy.type === "seer") addQuestProgress("casterHunt");
-  if (enemy.type === "brute") addQuestProgress("miniBoss");
-}
+  enemy.respawn = 15;
+  addCombatLog(`${enemy.name} defeated.`);
+  handleQuestEvent("kill", enemy.type);
 
-function dropLoot(position) {
-  const item = lootTable[Math.floor(prng.random() * lootTable.length)];
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), materials.glow);
-  mesh.position.copy(position).add(new THREE.Vector3(0, 0.3, 0));
-  scene.add(mesh);
-  lootDrops.push({ mesh, item, timer: 14 });
-}
-
-function pickLoot() {
-  lootDrops.forEach((drop, index) => {
-    if (drop.mesh.position.distanceTo(player.pos) < 1.4) {
-      if (drop.item.type === "quest") {
-        addQuestProgress("recoverRelics");
-      } else {
-        player.inventory.push({ name: drop.item.name, type: "loot", value: drop.item.value });
-      }
-      scene.remove(drop.mesh);
-      lootDrops.splice(index, 1);
+  const drop = lootTable.find((item) => prng.random() < item.chance);
+  if (drop) {
+    const item = getItemById(drop.id);
+    if (item) {
+      lootDrops.push({ itemId: item.id, pos: enemy.pos.clone(), timer: 15 });
     }
-  });
+  }
+  player.gold += Math.floor(randRange(4, 9));
+}
+
+function toScreenPosition(position) {
+  const vector = position.clone();
+  vector.project(camera);
+  if (vector.z > 1) return null;
+  return {
+    x: (vector.x * 0.5 + 0.5) * window.innerWidth,
+    y: (-(vector.y * 0.5) + 0.5) * window.innerHeight
+  };
+}
+
+function updateCamera(dt) {
+  settings.cameraYaw = lerp(settings.cameraYaw, settings.cameraYawTarget, dt * settings.cameraSmoothing);
+  settings.cameraPitch = lerp(settings.cameraPitch, settings.cameraPitchTarget, dt * settings.cameraSmoothing);
+
+  const offset = new THREE.Vector3(
+    Math.sin(settings.cameraYaw) * settings.zoom,
+    settings.zoom * settings.cameraPitch,
+    Math.cos(settings.cameraYaw) * settings.zoom
+  );
+  let desired = player.pos.clone().add(offset);
+  const direction = desired.clone().sub(player.pos).normalize();
+  const ray = new THREE.Raycaster(player.pos.clone().add(new THREE.Vector3(0, 1, 0)), direction, 0, settings.zoom);
+  const hit = ray.intersectObjects(world.props, true)[0];
+  if (hit) {
+    desired = player.pos.clone().add(direction.multiplyScalar(Math.max(2.5, hit.distance - 0.4)));
+  }
+
+  camera.position.lerp(desired, dt * settings.cameraSmoothing);
+  camera.lookAt(player.pos.clone().add(new THREE.Vector3(0, 1.2, 0)));
 }
 
 function resolveCollisions(position, radius) {
@@ -1202,28 +1218,8 @@ function resolveCollisions(position, radius) {
   });
   position.x = clamp(position.x, -world.size / 2 + radius, world.size / 2 - radius);
   position.z = clamp(position.z, -world.size / 2 + radius, world.size / 2 - radius);
+  position.y = 1;
   return collided;
-}
-
-function updateCamera(dt) {
-  settings.cameraYaw = lerp(settings.cameraYaw, settings.cameraYawTarget, dt * 6);
-  settings.cameraPitch = lerp(settings.cameraPitch, settings.cameraPitchTarget, dt * 6);
-
-  const offset = new THREE.Vector3(
-    Math.sin(settings.cameraYaw) * settings.zoom,
-    settings.zoom * settings.cameraPitch,
-    Math.cos(settings.cameraYaw) * settings.zoom
-  );
-  let desired = player.pos.clone().add(offset);
-  const direction = desired.clone().sub(player.pos).normalize();
-  const ray = new THREE.Raycaster(player.pos.clone().add(new THREE.Vector3(0, 1, 0)), direction, 0, settings.zoom);
-  const hit = ray.intersectObjects(world.props, true)[0];
-  if (hit) {
-    desired = player.pos.clone().add(direction.multiplyScalar(Math.max(2.5, hit.distance - 0.5)));
-  }
-
-  camera.position.lerp(desired, dt * 6);
-  camera.lookAt(player.pos.clone().add(new THREE.Vector3(0, 1.2, 0)));
 }
 
 function updatePlayer(dt) {
@@ -1236,32 +1232,32 @@ function updatePlayer(dt) {
   if (input.keys.has("KeyA")) move.sub(right);
   if (input.keys.has("KeyD")) move.add(right);
 
-  if (input.keys.has("KeyQ")) player.yaw -= dt * 2.5;
-  if (input.keys.has("KeyE")) player.yaw += dt * 2.5;
+  if (input.keys.has("KeyQ")) settings.cameraYawTarget += dt * 1.8;
+  if (input.keys.has("KeyE")) settings.cameraYawTarget -= dt * 1.8;
 
-  if (settings.holdRmb) {
-    player.yaw = lerpAngle(player.yaw, settings.cameraYaw, dt * 8);
-  }
+  const sprinting = input.keys.has("ShiftLeft") || input.keys.has("ShiftRight");
+  const targetSpeed = player.speed * (sprinting ? settings.sprintMultiplier : 1);
 
-  const targetSpeed = player.speed * (1 - player.fatigue / player.maxFatigue * 0.3);
   if (move.lengthSq() > 0.01) {
     move.normalize();
-    player.velocity.x = lerp(player.velocity.x, move.x * targetSpeed, dt * player.accel);
-    player.velocity.z = lerp(player.velocity.z, move.z * targetSpeed, dt * player.accel);
+    const desired = move.multiplyScalar(targetSpeed);
+    player.velocity.x = approach(player.velocity.x, desired.x, player.accel * dt);
+    player.velocity.z = approach(player.velocity.z, desired.z, player.accel * dt);
+    player.yawTarget = Math.atan2(desired.x, desired.z);
   } else {
-    player.velocity.x = lerp(player.velocity.x, 0, dt * player.decel);
-    player.velocity.z = lerp(player.velocity.z, 0, dt * player.decel);
+    player.velocity.x = approach(player.velocity.x, 0, player.decel * dt);
+    player.velocity.z = approach(player.velocity.z, 0, player.decel * dt);
   }
 
+  if (settings.holdRmb) {
+    player.yawTarget = settings.cameraYaw;
+  }
+
+  player.yaw = lerpAngle(player.yaw, player.yawTarget, dt * settings.turnSmoothing);
   player.pos.add(new THREE.Vector3(player.velocity.x * dt, 0, player.velocity.z * dt));
   resolveCollisions(player.pos, player.radius);
   player.mesh.position.copy(player.pos);
   player.mesh.rotation.y = player.yaw;
-}
-
-function lerpAngle(a, b, t) {
-  const diff = ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-  return a + diff * t;
 }
 
 function updateCasting(dt) {
@@ -1297,7 +1293,16 @@ function updateCombat(dt) {
 
 function updateEnemies(dt) {
   enemies.forEach((enemy) => {
-    if (enemy.hp <= 0) return;
+    if (enemy.hp <= 0) {
+      enemy.respawn = Math.max(0, enemy.respawn - dt);
+      if (enemy.respawn <= 0) {
+        enemy.hp = enemy.maxHp;
+        enemy.mesh.visible = true;
+        enemy.state = "patrol";
+        enemy.pos.copy(enemy.spawn);
+      }
+      return;
+    }
     if (enemy.dotTimer > 0) {
       enemy.dotTimer -= dt;
       enemy.dotTickTimer -= dt;
@@ -1319,66 +1324,84 @@ function updateEnemies(dt) {
       if (distance < enemy.aggroRadius) {
         enemy.state = "aggro";
         enemy.target = player;
-        groupAggro(enemy);
       } else {
         patrolEnemy(enemy, dt);
       }
     }
 
     if (enemy.state === "aggro") {
-      const homeDistance = enemy.pos.distanceTo(enemy.spawn);
-      if (homeDistance > enemy.leash) {
+      if (distance > enemy.leash) {
         enemy.state = "return";
         enemy.target = null;
-        return;
-      }
-      if (distance > enemy.aggroRadius * 2) {
-        enemy.state = "return";
-        enemy.target = null;
-        return;
-      }
-      const speed = enemy.speed * (enemy.slow ? 1 - enemy.slow : 1);
-      const direction = player.pos.clone().sub(enemy.pos).setY(0);
-      if (enemy.type === "seer" || enemy.type === "flying") {
-        const desiredRange = enemy.range - 3;
-        if (distance > desiredRange) {
-          enemy.velocity.copy(direction.normalize().multiplyScalar(speed));
-        } else {
-          enemy.velocity.copy(direction.normalize().multiplyScalar(-speed));
-        }
-      } else if (enemy.hp < enemy.maxHp * 0.25 && enemy.type === "scout") {
-        enemy.velocity.copy(direction.normalize().multiplyScalar(-speed * 1.2));
       } else {
-        enemy.velocity.copy(direction.normalize().multiplyScalar(speed));
-      }
-      enemy.pos.add(enemy.velocity.clone().multiplyScalar(dt));
-      resolveCollisions(enemy.pos, 0.5);
-      enemy.mesh.position.copy(enemy.pos);
-      enemy.mesh.rotation.y = Math.atan2(direction.x, direction.z);
-
-      enemy.attackTimer -= dt;
-      if (enemy.attackTimer <= 0 && distance <= enemy.range) {
-        enemy.attackTimer = enemy.type === "seer" ? 2.2 : 1.6;
-        if (enemy.type === "seer" || enemy.type === "flying") {
-          spawnEnemyProjectile(enemy, player, 14, enemy.damage, 0xff7bd6);
-        } else {
-          receiveDamage(enemy.damage);
-        }
+        chaseEnemy(enemy, dt, distance);
       }
     }
 
     if (enemy.state === "return") {
-      const direction = enemy.spawn.clone().sub(enemy.pos).setY(0);
-      if (direction.length() < 0.4) {
+      const direction = enemy.spawn.clone().sub(enemy.pos);
+      if (direction.length() < 1) {
         enemy.state = "patrol";
       } else {
-        enemy.velocity.copy(direction.normalize().multiplyScalar(enemy.speed));
-        enemy.pos.add(enemy.velocity.clone().multiplyScalar(dt));
-        enemy.mesh.position.copy(enemy.pos);
-        enemy.mesh.rotation.y = Math.atan2(direction.x, direction.z);
+        enemy.pos.add(direction.normalize().multiplyScalar(enemy.speed * dt));
       }
     }
+
+    enemy.mesh.position.copy(enemy.pos);
+    if (enemy.target) {
+      enemy.mesh.rotation.y = Math.atan2(enemy.target.pos.x - enemy.pos.x, enemy.target.pos.z - enemy.pos.z);
+    }
   });
+}
+
+function patrolEnemy(enemy, dt) {
+  const target = enemy.patrol[enemy.patrolIndex];
+  const direction = target.clone().sub(enemy.pos);
+  if (direction.length() < 1) {
+    enemy.patrolIndex = (enemy.patrolIndex + 1) % enemy.patrol.length;
+  } else {
+    enemy.pos.add(direction.normalize().multiplyScalar(enemy.speed * dt));
+  }
+}
+
+function chaseEnemy(enemy, dt, distance) {
+  const speed = enemy.speed * (1 - enemy.slow);
+  if (enemy.ranged && distance < enemy.range * 0.8) {
+    enemy.state = "kite";
+  }
+
+  if (enemy.state === "kite") {
+    const away = enemy.pos.clone().sub(player.pos).setY(0).normalize();
+    enemy.pos.add(away.multiplyScalar(speed * dt));
+    if (distance > enemy.range) {
+      enemy.state = "aggro";
+    }
+  } else {
+    const direction = player.pos.clone().sub(enemy.pos).setY(0).normalize();
+    enemy.pos.add(direction.multiplyScalar(speed * dt));
+  }
+
+  enemy.attackTimer = Math.max(0, enemy.attackTimer - dt);
+  if (distance < enemy.range && enemy.attackTimer <= 0) {
+    enemy.attackTimer = enemy.type === "brute" ? 2.4 : 1.4;
+    if (enemy.type === "brute") {
+      enemy.telegraph = 0.6;
+      addCombatLog("Brute winds up a charge!");
+    } else if (enemy.ranged) {
+      spawnEnemyProjectile(enemy, player, 12, enemy.damage, 0xff7b7b);
+      applyDamage(player, enemy.damage * 0.7);
+    } else {
+      applyDamage(player, enemy.damage);
+    }
+  }
+
+  if (enemy.telegraph > 0) {
+    enemy.telegraph -= dt;
+    if (enemy.telegraph <= 0) {
+      applyDamage(player, enemy.damage * 1.4);
+      spawnNova(player.pos, 0xff7b7b);
+    }
+  }
 }
 
 function updateEscort(dt) {
@@ -1386,151 +1409,115 @@ function updateEscort(dt) {
   if (!state || state.status !== "active" || !escort.npc) return;
   const npc = escort.npc;
   const distance = npc.pos.distanceTo(player.pos);
-  if (distance > 2.4) {
+  if (distance > 3) {
     const direction = player.pos.clone().sub(npc.pos).setY(0).normalize();
     npc.pos.add(direction.multiplyScalar(dt * 3));
     npc.mesh.position.copy(npc.pos);
     npc.mesh.rotation.y = Math.atan2(direction.x, direction.z);
   }
   if (npc.pos.distanceTo(escort.destination) < 3.5) {
-    state.progress = 1;
-    state.status = "complete";
-  }
-}
-
-function groupAggro(enemy) {
-  enemies.forEach((other) => {
-    if (other === enemy || other.hp <= 0) return;
-    if (other.pos.distanceTo(enemy.pos) < 8) {
-      other.state = "aggro";
-      other.target = player;
-    }
-  });
-}
-
-function patrolEnemy(enemy, dt) {
-  if (!enemy.patrol || enemy.patrol.length === 0) return;
-  const target = enemy.patrol[enemy.patrolIndex];
-  const direction = target.clone().sub(enemy.pos);
-  if (direction.length() < 0.6) {
-    enemy.patrolIndex = (enemy.patrolIndex + 1) % enemy.patrol.length;
-    return;
-  }
-  enemy.velocity.copy(direction.normalize().multiplyScalar(enemy.speed * 0.5));
-  enemy.pos.add(enemy.velocity.clone().multiplyScalar(dt));
-  enemy.mesh.position.copy(enemy.pos);
-  enemy.mesh.rotation.y = Math.atan2(direction.x, direction.z);
-}
-
-function spawnEnemyProjectile(source, target, speed, damage, color) {
-  const geometry = new THREE.SphereGeometry(0.2, 8, 8);
-  const material = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.8 });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.copy(source.pos).add(new THREE.Vector3(0, 1.1, 0));
-  scene.add(mesh);
-  const dir = target.pos.clone().sub(source.pos).setY(0).normalize();
-  projectiles.push({ mesh, velocity: dir.multiplyScalar(speed), damage, source, target, enemy: true, life: 3 });
-}
-
-function receiveDamage(amount) {
-  const mitigated = Math.max(0, amount - player.shield);
-  player.shield = Math.max(0, player.shield - amount);
-  player.hp = Math.max(0, player.hp - mitigated);
-  spawnFloatingText(`-${amount}`, player.pos);
-  if (player.hp <= 0) {
-    player.hp = player.maxHp;
-    player.mana = player.maxMana;
-    player.pos.set(-50, 1, 0);
+    addQuestProgress("escortScribe");
   }
 }
 
 function updateProjectiles(dt) {
-  projectiles.forEach((proj, index) => {
+  projectiles.forEach((proj) => {
     proj.mesh.position.add(proj.velocity.clone().multiplyScalar(dt));
     proj.life -= dt;
     if (proj.life <= 0) {
       scene.remove(proj.mesh);
-      projectiles.splice(index, 1);
-      return;
     }
     const target = proj.target;
     if (target && target.hp > 0 && proj.mesh.position.distanceTo(target.pos) < 0.8) {
-      if (proj.enemy) {
-        receiveDamage(proj.damage);
-      } else {
-        applyDamage(target, proj.damage);
-      }
+      applyDamage(target, proj.damage);
       scene.remove(proj.mesh);
-      projectiles.splice(index, 1);
+      proj.life = 0;
     }
   });
+  for (let i = projectiles.length - 1; i >= 0; i -= 1) {
+    if (projectiles[i].life <= 0) projectiles.splice(i, 1);
+  }
 }
 
 function updateSummons(dt) {
-  summoned.forEach((pet, index) => {
+  summoned.forEach((pet) => {
     pet.timer -= dt;
     if (pet.timer <= 0) {
       scene.remove(pet.mesh);
-      summoned.splice(index, 1);
+      pet.dead = true;
       return;
     }
-    pet.mesh.rotation.y += dt * 2;
-    pet.attackTimer -= dt;
-    if (pet.attackTimer <= 0) {
-      const target = findNearestEnemy(10);
-      if (target) {
-        pet.attackTimer = 2.4;
-        spawnProjectile({ pos: pet.pos }, target, 16, 12, 12, 0x9fd7ff);
+    const target = findNearestEnemy(10);
+    if (target) {
+      pet.mesh.position.lerp(target.pos, dt * 0.6);
+      if (pet.attackTimer <= 0) {
+        pet.attackTimer = 1.4;
+        spawnProjectile({ pos: pet.mesh.position }, target, 16, 12, 12, 0x9fd7ff);
       }
     }
+    pet.attackTimer = Math.max(0, pet.attackTimer - dt);
   });
+  for (let i = summoned.length - 1; i >= 0; i -= 1) {
+    if (summoned[i].dead) summoned.splice(i, 1);
+  }
 }
 
 function updateParticles(dt) {
-  particles.forEach((particle, index) => {
+  particles.forEach((particle) => {
     particle.life -= dt;
-    if (particle.grow) {
-      particle.mesh.scale.multiplyScalar(1 + dt * particle.grow);
-    }
     if (particle.expand) {
-      particle.mesh.scale.multiplyScalar(1 + dt * particle.expand);
+      particle.mesh.scale.addScalar(dt * particle.expand);
+      particle.mesh.material.opacity = particle.life;
     }
-    if (particle.life <= 0) {
-      scene.remove(particle.mesh);
-      particles.splice(index, 1);
+    if (particle.fade) {
+      particle.mesh.material.opacity = particle.life;
     }
   });
+  for (let i = particles.length - 1; i >= 0; i -= 1) {
+    if (particles[i].life <= 0) {
+      scene.remove(particles[i].mesh);
+      particles.splice(i, 1);
+    }
+  }
+}
+
+function summonCompanion() {
+  const mesh = createHumanoid({ body: materials.glow, accent: materials.player, height: 1.3, role: "summon" });
+  mesh.position.copy(player.pos).add(new THREE.Vector3(1.5, 0, 1.5));
+  scene.add(mesh);
+  summoned.push({ mesh, timer: 12, attackTimer: 0 });
 }
 
 function updateAnimations(time) {
   animateHumanoid(player.mesh, time, player.velocity.length());
   enemies.forEach((enemy) => animateHumanoid(enemy.mesh, time, enemy.velocity.length()));
   npcs.forEach((npc) => animateHumanoid(npc.mesh, time, 0));
+  summoned.forEach((pet) => animateHumanoid(pet.mesh, time, 1));
 }
 
-function animateHumanoid(group, time, speed) {
-  if (!group) return;
-  const data = group.userData;
-  const walk = Math.min(1, speed / 5);
-  const swing = Math.sin(time * 6) * 0.6 * walk;
-  data.armLeft.rotation.x = swing;
-  data.armRight.rotation.x = -swing;
-  data.legLeft.rotation.x = -swing;
-  data.legRight.rotation.x = swing;
-  data.torso.position.y = data.torsoBase + Math.sin(time * 2) * 0.05;
+function animateHumanoid(mesh, time, speed) {
+  if (!mesh?.userData) return;
+  const sway = Math.sin(time * 4) * 0.08 * clamp(speed, 0, 1);
+  mesh.userData.armLeft.rotation.x = sway;
+  mesh.userData.armRight.rotation.x = -sway;
+  mesh.userData.legLeft.rotation.x = -sway;
+  mesh.userData.legRight.rotation.x = sway;
+  mesh.position.y = 1 + Math.sin(time * 2) * 0.04;
 }
 
-function updateUi() {
+function updateUi(dt) {
   dom.hpFill.style.width = `${(player.hp / player.maxHp) * 100}%`;
-  dom.hpText.textContent = `${Math.round(player.hp)} / ${player.maxHp}`;
+  dom.hpText.textContent = `${Math.floor(player.hp)} / ${player.maxHp}`;
   dom.manaFill.style.width = `${(player.mana / player.maxMana) * 100}%`;
-  dom.manaText.textContent = `${Math.round(player.mana)} / ${player.maxMana}`;
+  dom.manaText.textContent = `${Math.floor(player.mana)} / ${player.maxMana}`;
   dom.fatigueFill.style.width = `${(player.fatigue / player.maxFatigue) * 100}%`;
-  dom.fatigueText.textContent = `${Math.round(player.fatigue)} / ${player.maxFatigue}`;
+  dom.fatigueText.textContent = `${Math.floor(player.fatigue)} / ${player.maxFatigue}`;
   dom.levelText.textContent = player.level;
-  dom.xpText.textContent = `${player.xp}/${player.xpToNext}`;
+  dom.xpText.textContent = `${player.xp} / ${player.xpToNext}`;
   dom.goldText.textContent = player.gold;
-  dom.zoneText.textContent = getZoneName();
+
+  const zone = world.zones.find((zoneInfo) => zoneInfo.center.distanceTo(player.pos) < zoneInfo.radius);
+  dom.zoneText.textContent = zone ? zone.name : "Outlands";
 
   dom.targetFrame.classList.toggle("hidden", !player.target || player.target.hp <= 0);
   if (player.target && player.target.hp > 0) {
@@ -1542,73 +1529,220 @@ function updateUi() {
     targetRing.visible = false;
   }
 
+  dom.equipStaff.textContent = player.equipment.staff ? getItemById(player.equipment.staff)?.name || "None" : "None";
+  dom.equipRobe.textContent = player.equipment.robe ? getItemById(player.equipment.robe)?.name || "None" : "None";
+  dom.equipRing.textContent = player.equipment.ring ? getItemById(player.equipment.ring)?.name || "None" : "None";
+
   dom.inventoryList.innerHTML = "";
-  player.inventory.slice(0, 6).forEach((item) => {
+  const filter = dom.inventoryFilter.value;
+  const sort = dom.inventorySort.value;
+  const items = player.inventory
+    .map((entry) => ({ ...entry, item: getItemById(entry.id) }))
+    .filter((entry) => entry.item)
+    .filter((entry) => filter === "all" || entry.item.type === filter)
+    .sort((a, b) => {
+      if (sort === "value") return b.item.value - a.item.value;
+      if (sort === "rarity") return (b.item.rarity || "").localeCompare(a.item.rarity || "");
+      return a.item.name.localeCompare(b.item.name);
+    });
+
+  items.forEach((entry) => {
     const li = document.createElement("li");
+    const item = entry.item;
     const button = document.createElement("button");
-    button.textContent = item.name;
+    button.textContent = `${item.name} x${entry.quantity}`;
+    button.addEventListener("mouseenter", (event) => showTooltip(event, item));
+    button.addEventListener("mouseleave", hideTooltip);
     button.addEventListener("click", () => {
-      if (item.type === "equipment") {
-        equipItem(item);
+      if (item.type === "consumable") {
+        useItem(item.id);
+      } else if (item.slot) {
+        equipItem(item.id);
       }
     });
     li.appendChild(button);
+
+    if (!item.slot && item.type !== "consumable") {
+      const dropBtn = document.createElement("button");
+      dropBtn.textContent = "Drop";
+      dropBtn.addEventListener("click", () => removeItem(item.id, 1));
+      li.appendChild(dropBtn);
+    }
+
     dom.inventoryList.appendChild(li);
   });
-  dom.equipStaff.textContent = player.equipment.staff?.name || "None";
-  dom.equipRobe.textContent = player.equipment.robe?.name || "None";
-  dom.equipRing.textContent = player.equipment.ring?.name || "None";
 
-  const slots = dom.hotbar.querySelectorAll(".hotbar__slot");
-  slots.forEach((slot) => {
-    const ability = abilities.find((item) => item.id === slot.dataset.id);
+  abilities.forEach((ability) => {
+    const slot = dom.hotbar.querySelector(`[data-id="${ability.id}"]`);
+    if (!slot) return;
     const cooldown = abilityState[ability.id].cooldown;
     slot.dataset.cooldown = cooldown > 0;
     const overlay = slot.querySelector(".hotbar__cooldown");
     const ratio = cooldown > 0 && ability.cooldown > 0 ? cooldown / ability.cooldown : 0;
-    overlay.style.clipPath = `inset(${ratio * 100}% 0 0 0)`;
+    overlay.style.clipPath = `inset(${(1 - ratio) * 100}% 0 0 0)`;
+  });
+
+  uiWarnings.forEach((warning) => {
+    warning.timer -= dt;
+  });
+  if (uiWarnings.length > 0) {
+    const warning = uiWarnings[0];
+    dom.warningPanel.textContent = warning.message;
+    dom.warningPanel.classList.toggle("hidden", warning.timer <= 0);
+    if (warning.timer <= 0) uiWarnings.shift();
+  } else {
+    dom.warningPanel.classList.add("hidden");
+  }
+
+  dom.combatLog.innerHTML = "";
+  combatLog.forEach((entry) => {
+    entry.timer -= dt;
+    if (entry.timer <= 0) return;
+    const line = document.createElement("div");
+    line.textContent = entry.message;
+    dom.combatLog.appendChild(line);
+  });
+
+  updateQuestMarkers();
+  updateCompass();
+}
+
+function showTooltip(event, item) {
+  dom.tooltip.classList.remove("hidden");
+  dom.tooltip.style.left = `${event.clientX + 12}px`;
+  dom.tooltip.style.top = `${event.clientY + 12}px`;
+  dom.tooltip.innerHTML = `
+    <div class="tooltip__title">${item.name}</div>
+    <div class="tooltip__rarity rarity-${item.rarity}">${item.rarity}</div>
+    <div>${item.description}</div>
+  `;
+}
+
+function hideTooltip() {
+  dom.tooltip.classList.add("hidden");
+}
+
+function updateQuestMarkers() {
+  world.markers.forEach((marker) => {
+    marker.visible = false;
+  });
+
+  npcs.forEach((npc) => {
+    const available = dataStore.quests.find((quest) => quest.giver === npc.id && !questState.quests[quest.id]);
+    const turnIn = dataStore.quests.find((quest) => quest.giver === npc.id && questState.quests[quest.id]?.status === "complete");
+    if (turnIn && npc.markerTurnIn) {
+      npc.markerTurnIn.visible = true;
+      npc.markerTurnIn.position.copy(npc.pos).setY(2.8);
+    } else if (available && npc.markerAvailable) {
+      npc.markerAvailable.visible = true;
+      npc.markerAvailable.position.copy(npc.pos).setY(2.8);
+    }
+  });
+
+  questState.active.forEach((questId) => {
+    const quest = getQuestById(questId);
+    if (!quest) return;
+    const state = questState.quests[questId];
+    const step = quest.steps[state.stepIndex];
+    if (!step) return;
+    if (step.type === "interact" || step.type === "sequence") {
+      interactables.forEach((obj) => {
+        if (step.target === obj.type && obj.marker) {
+          obj.marker.visible = true;
+          obj.marker.position.copy(obj.pos).setY(2.2);
+        }
+      });
+    }
   });
 }
 
-function getZoneName() {
-  const zone = world.zones.find((area) => area.center.distanceTo(player.pos) < area.radius);
-  return zone ? zone.name : "Wilds";
+function updateCompass() {
+  if (questState.active.length === 0) {
+    dom.compassLabel.textContent = "";
+    return;
+  }
+  const questId = questState.active[0];
+  const quest = getQuestById(questId);
+  const state = questState.quests[questId];
+  const step = quest?.steps[state.stepIndex];
+  if (!step) return;
+  let targetPos = null;
+  if (step.type === "reach") {
+    targetPos = world.objectives[step.target];
+  }
+  if (step.type === "talk") {
+    const npc = getNpcById(step.target);
+    if (npc) targetPos = npc.pos;
+  }
+  if (step.type === "interact") {
+    const obj = interactables.find((entry) => entry.type === step.target);
+    if (obj) targetPos = obj.pos;
+  }
+  if (step.type === "kill") {
+    const enemy = enemies.find((entry) => entry.type === step.target && entry.hp > 0);
+    if (enemy) targetPos = enemy.pos;
+  }
+
+  if (!targetPos) {
+    dom.compassLabel.textContent = "";
+    return;
+  }
+
+  const toTarget = targetPos.clone().sub(player.pos);
+  const angle = Math.atan2(toTarget.x, toTarget.z) - settings.cameraYaw;
+  dom.compassArrow.style.transform = `translateX(-50%) rotate(${angle}rad)`;
+  dom.compassLabel.textContent = `${step.text} (${Math.floor(toTarget.length())}m)`;
 }
 
 function updateMinimap() {
   minimapCtx.clearRect(0, 0, dom.minimap.width, dom.minimap.height);
-  minimapCtx.fillStyle = "rgba(15, 24, 38, 0.8)";
+  minimapCtx.fillStyle = "rgba(10, 16, 28, 0.7)";
   minimapCtx.fillRect(0, 0, dom.minimap.width, dom.minimap.height);
-  const scale = 0.5;
-  const center = { x: dom.minimap.width / 2, y: dom.minimap.height / 2 };
-  minimapCtx.fillStyle = "#7dd7ff";
+  const scale = dom.minimap.width / world.size;
+  const center = dom.minimap.width / 2;
+
+  minimapCtx.fillStyle = "#7fd9ff";
   minimapCtx.beginPath();
-  minimapCtx.arc(center.x, center.y, 4, 0, Math.PI * 2);
+  minimapCtx.arc(center + player.pos.x * scale, center + player.pos.z * scale, 4, 0, Math.PI * 2);
   minimapCtx.fill();
 
+  minimapCtx.fillStyle = "#ff7b7b";
   enemies.forEach((enemy) => {
     if (enemy.hp <= 0) return;
-    const dx = (enemy.pos.x - player.pos.x) * scale;
-    const dz = (enemy.pos.z - player.pos.z) * scale;
-    if (Math.abs(dx) > 70 || Math.abs(dz) > 70) return;
-    minimapCtx.fillStyle = "#ff7b7b";
-    minimapCtx.fillRect(center.x + dx, center.y + dz, 3, 3);
+    minimapCtx.beginPath();
+    minimapCtx.arc(center + enemy.pos.x * scale, center + enemy.pos.z * scale, 3, 0, Math.PI * 2);
+    minimapCtx.fill();
   });
+}
+
+function pickLoot(dt) {
+  for (let i = lootDrops.length - 1; i >= 0; i -= 1) {
+    const drop = lootDrops[i];
+    drop.timer -= dt;
+    if (drop.timer <= 0) {
+      lootDrops.splice(i, 1);
+      continue;
+    }
+    if (drop.pos.distanceTo(player.pos) < 2) {
+      giveItem(drop.itemId, 1);
+      handleQuestEvent("loot", drop.itemId);
+      addCombatLog(`Looted ${getItemById(drop.itemId)?.name || "item"}`);
+      lootDrops.splice(i, 1);
+    }
+  }
 }
 
 function handleInteract() {
   const npc = npcs.find((unit) => unit.pos.distanceTo(player.pos) < 2.2);
   if (npc) {
-    if (npc.name === "Hermit Orren") {
-      addQuestProgress("hermitNote");
-    }
+    handleQuestEvent("talk", npc.id);
     openDialogue(npc);
     return;
   }
   interactables.forEach((obj) => {
     if (obj.pos.distanceTo(player.pos) < 2.2) {
       if (obj.type === "sample") {
-        addQuestProgress("lakeSamples");
+        handleQuestEvent("interact", "sample");
       }
       if (obj.type === "ritual") {
         const state = questState.quests["ritualStones"];
@@ -1700,6 +1834,15 @@ function loadGame() {
   }
 }
 
+function openPanel(panelKey) {
+  const panels = [dom.dialoguePanel, dom.vendorPanel, dom.questLog, dom.inventoryPanel];
+  panels.forEach((panel) => panel.classList.add("hidden"));
+  if (panelKey === "dialogue") dom.dialoguePanel.classList.remove("hidden");
+  if (panelKey === "vendor") dom.vendorPanel.classList.remove("hidden");
+  if (panelKey === "questLog") dom.questLog.classList.remove("hidden");
+  if (panelKey === "inventory") dom.inventoryPanel.classList.remove("hidden");
+}
+
 function setupEvents() {
   window.addEventListener("resize", () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -1715,11 +1858,19 @@ function setupEvents() {
     }
     if (event.code === "KeyF") handleInteract();
     if (event.code === "KeyJ") toggleQuestLog();
+    if (event.code === "KeyI") openPanel("inventory");
     if (event.code === "KeyH") dom.helpOverlay.classList.toggle("hidden");
     if (event.code === "KeyO") saveGame();
     if (event.code === "Tab") {
       event.preventDefault();
       cycleTarget();
+    }
+    if (event.code === "Escape") {
+      player.target = null;
+      dom.dialoguePanel.classList.add("hidden");
+      dom.vendorPanel.classList.add("hidden");
+      dom.questLog.classList.add("hidden");
+      dom.inventoryPanel.classList.add("hidden");
     }
   });
 
@@ -1757,10 +1908,34 @@ function setupEvents() {
   canvas.addEventListener("wheel", (event) => {
     settings.zoom = clamp(settings.zoom + event.deltaY * 0.01, settings.minZoom, settings.maxZoom);
   });
+
+  dom.toggleInventory.addEventListener("click", () => openPanel("inventory"));
+  dom.toggleQuestLog.addEventListener("click", () => toggleQuestLog());
+  dom.closeVendor.addEventListener("click", closeVendor);
+  dom.closeQuestLog.addEventListener("click", () => dom.questLog.classList.add("hidden"));
+  dom.closeInventory.addEventListener("click", () => dom.inventoryPanel.classList.add("hidden"));
+  dom.closeHelp.addEventListener("click", () => dom.helpOverlay.classList.add("hidden"));
+
+  dom.inventoryFilter.addEventListener("change", () => updateUi(0));
+  dom.inventorySort.addEventListener("change", () => updateUi(0));
+}
+
+function updateQuestObjectives() {
+  const quest = getQuestById("miniBoss");
+  const state = questState.quests["miniBoss"];
+  if (quest && state && state.status === "active") {
+    const step = quest.steps[state.stepIndex];
+    if (step?.type === "reach") {
+      const target = world.objectives[step.target];
+      if (target && target.distanceTo(player.pos) < 4) {
+        addQuestProgress("miniBoss");
+      }
+    }
+  }
 }
 
 function updateTime(dt) {
-  pickLoot();
+  pickLoot(dt);
   updateCooldowns(dt);
   updateCasting(dt);
   updateCombat(dt);
@@ -1772,8 +1947,9 @@ function updateTime(dt) {
   updateAnimations(clock.elapsedTime);
   updateCamera(dt);
   updateQuestTracker();
+  updateQuestObjectives();
   updateMinimap();
-  updateUi();
+  updateUi(dt);
 }
 
 function gameLoop() {
@@ -1784,14 +1960,81 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
-function init() {
+async function loadGameData() {
+  const [items, spells, quests, npcsData] = await Promise.all([
+    fetch("data/items.json").then((res) => res.json()),
+    fetch("data/spells.json").then((res) => res.json()),
+    fetch("data/quests.json").then((res) => res.json()),
+    fetch("data/npcs.json").then((res) => res.json())
+  ]);
+  dataStore.items = items;
+  dataStore.spells = spells;
+  dataStore.quests = quests;
+  dataStore.npcs = npcsData;
+  items.forEach((item) => dataStore.itemMap.set(item.id, item));
+  spells.forEach((spell) => dataStore.spellMap.set(spell.id, spell));
+  quests.forEach((quest) => dataStore.questMap.set(quest.id, quest));
+  npcsData.forEach((npc) => dataStore.npcMap.set(npc.id, npc));
+}
+
+function buildQuestMarkers() {
+  npcs.forEach((npc) => {
+    const available = createQuestMarker("!", "#ffd166");
+    const turnIn = createQuestMarker("?", "#7dd7ff");
+    available.visible = false;
+    turnIn.visible = false;
+    npc.markerAvailable = available;
+    npc.markerTurnIn = turnIn;
+    scene.add(available, turnIn);
+    world.markers.push(available, turnIn);
+  });
+
+  interactables.forEach((obj) => {
+    const marker = createQuestMarker("•", "#7dd7ff");
+    marker.visible = false;
+    obj.marker = marker;
+    scene.add(marker);
+    world.markers.push(marker);
+  });
+}
+
+function initTutorial() {
+  const steps = [
+    "Welcome to the wilds. Use WASD to move and mouse wheel to zoom.",
+    "Hold RMB to rotate the camera, click enemies to target.",
+    "Press 1-3 to cast. Try Arc Bolt on a stalker.",
+    "Press F near NPCs to accept quests.",
+    "Open Inventory (I) to equip new gear."
+  ];
+  let index = 0;
+  dom.tutorialText.textContent = steps[index];
+  const interval = setInterval(() => {
+    index += 1;
+    if (index >= steps.length) {
+      dom.tutorialText.textContent = "Tutorial complete. Explore the wilds.";
+      clearInterval(interval);
+      return;
+    }
+    dom.tutorialText.textContent = steps[index];
+  }, 6000);
+}
+
+async function init() {
+  await loadGameData();
+  abilities = dataStore.spells;
+  abilityState = abilities.reduce((acc, ability) => {
+    acc[ability.id] = { cooldown: 0 };
+    return acc;
+  }, {});
   buildWorld();
   setupActors();
   spawnEnemies();
+  buildQuestMarkers();
   setupHotbar();
   setupEvents();
   loadGame();
   recalcStats();
+  initTutorial();
   setInterval(saveGame, 10000);
   gameLoop();
 }
