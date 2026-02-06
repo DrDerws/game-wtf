@@ -1,8 +1,10 @@
-# Glassbound: A Wizard's Tale
+# Arcane Wayfarer Prototype
 
-## How to Play Locally
-1. Open this repository on your computer.
-2. Open `docs/index.html` in any modern browser (double-click it or drag it into the browser).
+A minimalist, single-player 3D RPG prototype inspired by classic third-person MMO controls. It runs entirely as a static site with no build step.
+
+## Run Locally
+1. Clone or download this repository.
+2. Open `docs/index.html` directly in a modern browser.
 
 ## Enable GitHub Pages
 1. Go to **Settings → Pages** in your GitHub repository.
@@ -10,15 +12,23 @@
 3. Select the `main` branch and the `/docs` folder.
 4. Save. The Pages URL will load the game.
 
-## Preview in Codespaces
-- In Codespaces, open `docs/index.html` in the file explorer and use **Open with Live Preview** (or any static preview option provided by your editor).
-- Alternatively, run `python -m http.server` in the repository root and open the forwarded port, then navigate to `/docs/index.html`.
+## Controls
+- **WASD**: Move relative to camera
+- **Q/E**: Rotate character
+- **Right Mouse (hold + drag)**: Orbit camera / steer
+- **Mouse Wheel**: Zoom
+- **Left Click**: Target enemy
+- **Tab**: Cycle targets
+- **1–4**: Cast spells on hotbar
+- **E**: Interact with NPCs
 
-## Content Overview
-- **Tone:** Wonder, civic tension, and hopeful fantasy.
-- **Length:** ~30–60 minutes with branching choices and multiple endings.
+## Gameplay Loop
+- Talk to Camp Guide Lyra to accept a quest.
+- Clear six rift creatures in the wilds.
+- Return to camp for a mana reward.
+- Loot drops appear in the inventory panel.
 
-## How to Extend
-- Story content lives in `docs/game.js` in the `scenes` object. Add new scene entries or expand choices.
-- Spells are defined in the `spells` object in `docs/game.js`, and you can reference them in choice text or effects.
-- The core rendering and state logic are in `renderScene`, `applyChoice`, and `handleRoll` inside `docs/game.js`.
+## Tech Notes
+- Three.js is loaded via CDN.
+- All assets are simple geometry and colors generated in code.
+- Files live in `/docs` for GitHub Pages compatibility.
