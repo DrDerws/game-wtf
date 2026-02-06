@@ -1,34 +1,25 @@
-# Arcane Wayfarer Prototype
+# Arcane Wayfarer: Arena Prototype
 
-A minimalist, single-player 3D RPG prototype inspired by classic third-person MMO controls. It runs entirely as a static site with no build step.
+A minimalist, single-player 3D arena prototype with WASD + mouse look, waves, loot, and a seedable procedural layout.
 
 ## Run Locally
 1. Clone or download this repository.
 2. Open `docs/index.html` directly in a modern browser.
-
-## Enable GitHub Pages
-1. Go to **Settings → Pages** in your GitHub repository.
-2. Under **Build and deployment**, choose **Deploy from a branch**.
-3. Select the `main` branch and the `/docs` folder.
-4. Save. The Pages URL will load the game.
+   - Optional: add `?seed=12345` to the URL for a repeatable arena layout.
 
 ## Controls
-- **WASD**: Move relative to camera
-- **Q/E**: Rotate character
-- **Right Mouse (hold + drag)**: Orbit camera / steer
-- **Mouse Wheel**: Zoom
-- **Left Click**: Target enemy
-- **Tab**: Cycle targets
-- **1–4**: Cast spells on hotbar
-- **E**: Interact with NPCs
+- **WASD**: Move
+- **Mouse**: Look (click to lock pointer)
+- **Space**: Jump
+- **Shift**: Dodge roll (i-frames)
+- **LMB**: Attack
+- **1/2**: Switch melee / ranged weapon
+- **V**: Toggle first/third person camera
+- **E**: Use upgrade station (between waves)
+- **H**: Toggle controls panel
+- **Esc**: Pause
 
-## Gameplay Loop
-- Talk to Camp Guide Lyra to accept a quest.
-- Clear six rift creatures in the wilds.
-- Return to camp for a mana reward.
-- Loot drops appear in the inventory panel.
-
-## Tech Notes
+## Notes
 - Three.js is loaded via CDN.
-- All assets are simple geometry and colors generated in code.
+- All assets are simple procedural geometry and colors.
 - Files live in `/docs` for GitHub Pages compatibility.

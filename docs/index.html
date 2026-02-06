@@ -3,97 +3,85 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Arcane Wayfarer Prototype</title>
+  <title>Arcane Wayfarer: Arena Prototype</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="game-root">
     <canvas id="game-canvas" aria-label="3D world"></canvas>
 
-    <div class="hud">
-      <div class="hud__top">
-        <div class="bar" id="player-bar">
-          <div class="bar__label">Wayfarer</div>
-          <div class="bar__fill" id="player-hp"></div>
-          <div class="bar__text" id="player-hp-text"></div>
-        </div>
-        <div class="bar bar--mana" id="player-mana-bar">
-          <div class="bar__label">Mana</div>
-          <div class="bar__fill" id="player-mana"></div>
-          <div class="bar__text" id="player-mana-text"></div>
-        </div>
-        <div class="bar bar--fatigue" id="player-fatigue-bar">
-          <div class="bar__label">Fatigue</div>
-          <div class="bar__fill" id="player-fatigue"></div>
-          <div class="bar__text" id="player-fatigue-text"></div>
-        </div>
-      </div>
+    <div id="crosshair" class="crosshair hidden">+</div>
 
-      <div class="hud__center">
-        <div class="cast" id="cast-bar">
-          <div class="cast__fill" id="cast-fill"></div>
-          <div class="cast__text" id="cast-text"></div>
-        </div>
-        <div class="target" id="target-frame">
-          <div class="target__name" id="target-name">No Target</div>
-          <div class="target__bar">
-            <div class="target__fill" id="target-hp"></div>
+    <div class="hud">
+      <div class="hud__left">
+        <canvas id="minimap" width="160" height="160" aria-label="Minimap"></canvas>
+        <div class="bars">
+          <div class="bar">
+            <span>HP</span>
+            <div class="bar__track"><div class="bar__fill" id="hud-hp"></div></div>
+            <div class="bar__text" id="hud-hp-text"></div>
+          </div>
+          <div class="bar bar--stamina">
+            <span>Stamina</span>
+            <div class="bar__track"><div class="bar__fill" id="hud-stamina"></div></div>
+            <div class="bar__text" id="hud-stamina-text"></div>
           </div>
         </div>
-      </div>
-
-      <div class="hud__right">
-        <div class="panel quest" id="quest-panel">
-          <h3>Quest</h3>
-          <p id="quest-text">Talk to the camp guide.</p>
+        <div class="stats">
+          <div>Ammo: <span id="hud-ammo">0</span></div>
+          <div>Wave: <span id="hud-wave">1</span></div>
+          <div>XP: <span id="hud-xp">0</span></div>
+          <div>Weapon: <span id="hud-weapon">Melee</span></div>
         </div>
-        <div class="panel inventory" id="inventory-panel">
+        <div class="panel">
           <h3>Inventory</h3>
           <ul id="inventory-list"></ul>
         </div>
       </div>
 
-      <div class="hud__bottom">
-        <div class="hotbar" id="hotbar">
-          <button class="hotbar__slot" data-slot="1">
-            <span class="hotbar__key">1</span>
-            <span class="hotbar__name">Arc Bolt</span>
-            <span class="hotbar__mana">4</span>
-            <span class="hotbar__cooldown"></span>
-          </button>
-          <button class="hotbar__slot" data-slot="2">
-            <span class="hotbar__key">2</span>
-            <span class="hotbar__name">Sigil Snare</span>
-            <span class="hotbar__mana">12</span>
-            <span class="hotbar__cooldown"></span>
-          </button>
-          <button class="hotbar__slot" data-slot="3">
-            <span class="hotbar__key">3</span>
-            <span class="hotbar__name">Ward Shell</span>
-            <span class="hotbar__mana">18</span>
-            <span class="hotbar__cooldown"></span>
-          </button>
-          <button class="hotbar__slot" data-slot="4">
-            <span class="hotbar__key">4</span>
-            <span class="hotbar__name">Nova Pulse</span>
-            <span class="hotbar__mana">26</span>
-            <span class="hotbar__cooldown"></span>
-          </button>
+      <div class="hud__right">
+        <div class="panel" id="shop-panel">
+          <h3>Upgrade Station</h3>
+          <p id="shop-text"></p>
         </div>
-        <div class="controls">
-          <p><strong>Controls:</strong> WASD move, Q/E rotate, RMB drag/steer, mouse wheel zoom, Tab target, LMB select, 1–4 cast, E interact.</p>
+        <div class="panel">
+          <h3>Settings</h3>
+          <label for="sensitivity">Mouse Sensitivity</label>
+          <input id="sensitivity" type="range" min="0.001" max="0.008" step="0.0005" value="0.003" />
+          <div class="small">Current: <span id="sensitivity-value">0.003</span></div>
+        </div>
+        <div class="panel">
+          <h3>Controls (H to toggle)</h3>
+          <div class="small visible" id="help-overlay">
+            <ul>
+              <li>WASD: Move</li>
+              <li>Mouse: Look (click to lock)</li>
+              <li>Space: Jump</li>
+              <li>Shift: Dodge roll</li>
+              <li>1/2: Switch weapon</li>
+              <li>LMB: Attack</li>
+              <li>V: Toggle camera</li>
+              <li>E: Use upgrade station</li>
+              <li>Esc: Pause</li>
+            </ul>
+          </div>
         </div>
       </div>
 
-      <div class="dialogue" id="dialogue">
-        <div class="dialogue__box">
-          <div class="dialogue__title" id="dialogue-title"></div>
-          <div class="dialogue__text" id="dialogue-text"></div>
-          <button id="dialogue-close" type="button">Close</button>
-        </div>
+      <div class="hud__center">
+        <div id="hud-message" class="message"></div>
       </div>
+    </div>
 
-      <div class="combat-text" id="combat-text"></div>
+    <div id="wave-banner" class="banner">Wave 1</div>
+
+    <div id="pause-menu" class="overlay">
+      <div class="overlay__box">
+        <h2>Paused</h2>
+        <button id="resume-btn" type="button">Resume</button>
+        <button id="restart-btn" type="button">Restart Run</button>
+        <button id="quit-btn" type="button">Quit</button>
+      </div>
     </div>
   </div>
 
