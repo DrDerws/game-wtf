@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Glassbound: A Wizard's Tale</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="app__header">
+      <div>
+        <h1>Glassbound: A Wizard's Tale</h1>
+        <p class="tagline">A narrative, choice-driven fantasy RPG with consequences.</p>
+      </div>
+      <div class="controls" role="group" aria-label="Game controls">
+        <button id="new-game" type="button">New Game</button>
+        <button id="continue-game" type="button">Continue</button>
+      </div>
+    </header>
+
+    <section class="status" aria-live="polite">
+      <div class="resource"><span>Mana</span> <strong id="mana">0</strong></div>
+      <div class="resource"><span>Fatigue</span> <strong id="fatigue">0</strong></div>
+      <div class="resource"><span>Reputation</span> <strong id="reputation">0</strong></div>
+    </section>
+
+    <section class="scene" aria-live="polite" aria-atomic="true">
+      <h2 id="scene-title">Loading...</h2>
+      <div id="scene-text" class="scene__text"></div>
+    </section>
+
+    <section class="choices" aria-label="Choices">
+      <div id="choices"></div>
+    </section>
+
+    <aside class="log" aria-label="Event log">
+      <h3>Log</h3>
+      <div id="log-entries" class="log__entries"></div>
+    </aside>
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>
