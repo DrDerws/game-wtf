@@ -214,6 +214,23 @@ body {
   pointer-events: none;
 }
 
+.debug-hud {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  padding: 10px 12px;
+  background: rgba(5, 10, 18, 0.75);
+  border: 1px solid rgba(140, 170, 220, 0.35);
+  border-radius: 10px;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: #d7e6ff;
+  max-width: 280px;
+  white-space: pre-line;
+  pointer-events: none;
+  z-index: 40;
+}
+
 .floating {
   position: absolute;
   color: #fff0b3;

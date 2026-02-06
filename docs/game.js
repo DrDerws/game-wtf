@@ -11,7 +11,11 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0a0f18);
 scene.fog = new THREE.Fog(0x0a0f18, 30, 200);
 
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 320);
+const worldRoot = new THREE.Group();
+worldRoot.name = "world-root";
+scene.add(worldRoot);
+
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
 const clock = new THREE.Clock();
 
 const ambient = new THREE.AmbientLight(0x8aa4d6, 0.45);
@@ -76,7 +80,8 @@ const dom = {
   closeInventory: document.getElementById("close-inventory"),
   toggleInventory: document.getElementById("toggle-inventory"),
   toggleQuestLog: document.getElementById("toggle-quest-log"),
-  closeHelp: document.getElementById("close-help")
+  closeHelp: document.getElementById("close-help"),
+  debugHud: document.getElementById("debug-hud")
 };
 
 const minimapCtx = dom.minimap.getContext("2d");
@@ -154,6 +159,8 @@ const world = {
   }
 };
 
+const groundHeight = 1;
+
 const input = {
   keys: new Set(),
   wheel: 0
@@ -204,18 +211,64 @@ function approach(current, target, delta) {
   return Math.max(target, current - delta);
 }
 
+function formatVec3(vec) {
+  return `${vec.x.toFixed(2)}, ${vec.y.toFixed(2)}, ${vec.z.toFixed(2)}`;
+}
+
+function formatEuler(euler) {
+  return `${THREE.MathUtils.radToDeg(euler.x).toFixed(1)}, ${THREE.MathUtils.radToDeg(euler.y).toFixed(1)}, ${THREE.MathUtils.radToDeg(euler.z).toFixed(1)}`;
+}
+
+function updateFallbackMessage(message) {
+  fallbackCtx.clearRect(0, 0, fallbackCanvas.width, fallbackCanvas.height);
+  fallbackCtx.fillStyle = "#12070f";
+  fallbackCtx.fillRect(0, 0, fallbackCanvas.width, fallbackCanvas.height);
+  fallbackCtx.fillStyle = "#f4d5e6";
+  fallbackCtx.font = "bold 46px sans-serif";
+  fallbackCtx.fillText("Render Error", 40, 120);
+  fallbackCtx.fillStyle = "#f1e1f2";
+  fallbackCtx.font = "24px sans-serif";
+  const lines = [
+    "The world failed to render. Check the debug HUD.",
+    message ? `Last error: ${message}` : "No error detail available."
+  ];
+  lines.forEach((line, index) => {
+    fallbackCtx.fillText(line, 40, 200 + index * 36);
+  });
+  fallbackTexture.needsUpdate = true;
+}
+
+function handleGlobalError(error, source) {
+  const message = error?.message || error?.toString?.() || String(error);
+  const detail = source ? `${source}: ${message}` : message;
+  errorState.active = true;
+  errorState.lastError = detail;
+  errorState.lastErrorTime = clock.elapsedTime;
+  console.error("Captured error:", detail, error);
+  updateFallbackMessage(detail);
+}
+
+function getGameState() {
+  if (!dom.dialoguePanel.classList.contains("hidden")) return "dialogue";
+  if (!dom.vendorPanel.classList.contains("hidden")) return "vendor";
+  if (!dom.questLog.classList.contains("hidden")) return "questLog";
+  if (!dom.inventoryPanel.classList.contains("hidden")) return "inventory";
+  if (!dom.helpOverlay.classList.contains("hidden")) return "help";
+  return "inGame";
+}
+
 const groundGeo = new THREE.PlaneGeometry(world.size, world.size);
 const ground = new THREE.Mesh(groundGeo, materials.ground);
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
-scene.add(ground);
+worldRoot.add(ground);
 
 const boundary = new THREE.Mesh(
   new THREE.BoxGeometry(world.size, 10, world.size),
   new THREE.MeshStandardMaterial({ color: 0x101722, side: THREE.BackSide })
 );
 boundary.position.set(0, 5, 0);
-scene.add(boundary);
+worldRoot.add(boundary);
 
 const targetRing = new THREE.Mesh(
   new THREE.TorusGeometry(0.9, 0.08, 12, 36),
@@ -223,11 +276,32 @@ const targetRing = new THREE.Mesh(
 );
 targetRing.rotation.x = -Math.PI / 2;
 targetRing.visible = false;
-scene.add(targetRing);
+worldRoot.add(targetRing);
 
 const particles = [];
 const uiWarnings = [];
 const combatLog = [];
+const spawnPoint = new THREE.Vector3(0, 1, 0);
+const errorState = {
+  active: false,
+  lastError: "None",
+  lastErrorTime: 0
+};
+
+const fallbackCanvas = document.createElement("canvas");
+fallbackCanvas.width = 1024;
+fallbackCanvas.height = 512;
+const fallbackCtx = fallbackCanvas.getContext("2d");
+const fallbackTexture = new THREE.CanvasTexture(fallbackCanvas);
+const fallbackScene = new THREE.Scene();
+const fallbackCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+fallbackCamera.position.z = 2;
+const fallbackPlane = new THREE.Mesh(
+  new THREE.PlaneGeometry(2, 1),
+  new THREE.MeshBasicMaterial({ map: fallbackTexture, transparent: true })
+);
+fallbackScene.add(fallbackPlane);
+fallbackScene.background = new THREE.Color(0x12070f);
 
 const player = {
   name: "Arcanist",
@@ -458,7 +532,7 @@ function createPropBox(x, z, w, d, h, material = materials.rock, y = h / 2) {
   mesh.position.set(x, y, z);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
-  scene.add(mesh);
+  worldRoot.add(mesh);
   world.props.push(mesh);
   world.colliders.push({ type: "box", pos: new THREE.Vector3(x, y, z), size: new THREE.Vector3(w / 2, h / 2, d / 2) });
   return mesh;
@@ -469,7 +543,7 @@ function createPropSphere(x, z, radius, material = materials.rock, y = radius) {
   mesh.position.set(x, y, z);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
-  scene.add(mesh);
+  worldRoot.add(mesh);
   world.props.push(mesh);
   world.colliders.push({ type: "sphere", pos: mesh.position.clone(), radius });
   return mesh;
@@ -482,7 +556,7 @@ function createTree(x, z, height = 4) {
   const canopy = new THREE.Mesh(new THREE.DodecahedronGeometry(1.4, 0), materials.tree);
   canopy.position.set(x, height + 0.4, z);
   canopy.castShadow = true;
-  scene.add(trunk, canopy);
+  worldRoot.add(trunk, canopy);
   world.props.push(trunk, canopy);
   world.colliders.push({ type: "sphere", pos: new THREE.Vector3(x, height + 0.4, z), radius: 1.2 });
 }
@@ -492,7 +566,7 @@ function createAreaPlane(x, z, w, d, material) {
   plane.rotation.x = -Math.PI / 2;
   plane.position.set(x, 0.01, z);
   plane.receiveShadow = true;
-  scene.add(plane);
+  worldRoot.add(plane);
 }
 
 function buildWorld() {
@@ -1190,6 +1264,28 @@ function updateCamera(dt) {
   camera.lookAt(player.pos.clone().add(new THREE.Vector3(0, 1.2, 0)));
 }
 
+function resetCameraToSpawn() {
+  player.pos.copy(spawnPoint);
+  player.velocity.set(0, 0, 0);
+  player.mesh.position.copy(player.pos);
+  player.yawTarget = player.yaw;
+  settings.cameraYawTarget = player.yaw + Math.PI;
+  settings.cameraYaw = settings.cameraYawTarget;
+  settings.cameraPitchTarget = 0.45;
+  settings.cameraPitch = settings.cameraPitchTarget;
+  settings.zoom = clamp(11, settings.minZoom, settings.maxZoom);
+  showWarning("Camera reset to spawn.");
+}
+
+function ensureWorldVisibility() {
+  if (!worldRoot.visible) {
+    worldRoot.visible = true;
+  }
+  if (worldRoot.scale.lengthSq() === 0) {
+    worldRoot.scale.set(1, 1, 1);
+  }
+}
+
 function resolveCollisions(position, radius) {
   let collided = false;
   world.colliders.forEach((collider) => {
@@ -1218,7 +1314,7 @@ function resolveCollisions(position, radius) {
   });
   position.x = clamp(position.x, -world.size / 2 + radius, world.size / 2 - radius);
   position.z = clamp(position.z, -world.size / 2 + radius, world.size / 2 - radius);
-  position.y = 1;
+  position.y = Math.max(groundHeight, position.y);
   return collided;
 }
 
@@ -1607,6 +1703,24 @@ function updateUi(dt) {
   updateCompass();
 }
 
+function updateDebugHud() {
+  if (!dom.debugHud) return;
+  const cameraPos = formatVec3(camera.position);
+  const cameraRot = formatEuler(camera.rotation);
+  const playerPos = formatVec3(player.pos);
+  const state = getGameState();
+  const errorMessage = errorState.lastError || "None";
+  dom.debugHud.textContent = [
+    "DEBUG HUD",
+    `Camera pos: ${cameraPos}`,
+    `Camera rot: ${cameraRot}`,
+    `Player pos: ${playerPos}`,
+    `Scene children: ${scene.children.length}`,
+    `Game state: ${state}`,
+    `Last error: ${errorMessage}`
+  ].join("\n");
+}
+
 function showTooltip(event, item) {
   dom.tooltip.classList.remove("hidden");
   dom.tooltip.style.left = `${event.clientX + 12}px`;
@@ -1844,6 +1958,15 @@ function openPanel(panelKey) {
 }
 
 function setupEvents() {
+  window.onerror = (message, source, lineno, colno, error) => {
+    handleGlobalError(error || new Error(message), "window.onerror");
+    return true;
+  };
+
+  window.addEventListener("unhandledrejection", (event) => {
+    handleGlobalError(event.reason || new Error("Unhandled rejection"), "unhandledrejection");
+  });
+
   window.addEventListener("resize", () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -1861,6 +1984,7 @@ function setupEvents() {
     if (event.code === "KeyI") openPanel("inventory");
     if (event.code === "KeyH") dom.helpOverlay.classList.toggle("hidden");
     if (event.code === "KeyO") saveGame();
+    if (event.code === "KeyR") resetCameraToSpawn();
     if (event.code === "Tab") {
       event.preventDefault();
       cycleTarget();
@@ -1935,6 +2059,7 @@ function updateQuestObjectives() {
 }
 
 function updateTime(dt) {
+  ensureWorldVisibility();
   pickLoot(dt);
   updateCooldowns(dt);
   updateCasting(dt);
@@ -1954,9 +2079,19 @@ function updateTime(dt) {
 
 function gameLoop() {
   const dt = Math.min(clock.getDelta(), 0.033);
-  updatePlayer(dt);
-  updateTime(dt);
-  renderer.render(scene, camera);
+  try {
+    if (!errorState.active) {
+      updatePlayer(dt);
+      updateTime(dt);
+      renderer.render(scene, camera);
+    } else {
+      renderer.render(fallbackScene, fallbackCamera);
+    }
+  } catch (error) {
+    handleGlobalError(error, "gameLoop");
+    renderer.render(fallbackScene, fallbackCamera);
+  }
+  updateDebugHud();
   requestAnimationFrame(gameLoop);
 }
 
@@ -1985,7 +2120,7 @@ function buildQuestMarkers() {
     turnIn.visible = false;
     npc.markerAvailable = available;
     npc.markerTurnIn = turnIn;
-    scene.add(available, turnIn);
+    worldRoot.add(available, turnIn);
     world.markers.push(available, turnIn);
   });
 
@@ -1993,7 +2128,7 @@ function buildQuestMarkers() {
     const marker = createQuestMarker("•", "#7dd7ff");
     marker.visible = false;
     obj.marker = marker;
-    scene.add(marker);
+    worldRoot.add(marker);
     world.markers.push(marker);
   });
 }
@@ -2036,6 +2171,7 @@ async function init() {
   recalcStats();
   initTutorial();
   setInterval(saveGame, 10000);
+  updateFallbackMessage("No error reported.");
   gameLoop();
 }
 
