@@ -3,43 +3,101 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Glassbound: A Wizard's Tale</title>
+  <title>Arcane Wayfarer Prototype</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <main class="app">
-    <header class="app__header">
-      <div>
-        <h1>Glassbound: A Wizard's Tale</h1>
-        <p class="tagline">A narrative, choice-driven fantasy RPG with consequences.</p>
+  <div id="game-root">
+    <canvas id="game-canvas" aria-label="3D world"></canvas>
+
+    <div class="hud">
+      <div class="hud__top">
+        <div class="bar" id="player-bar">
+          <div class="bar__label">Wayfarer</div>
+          <div class="bar__fill" id="player-hp"></div>
+          <div class="bar__text" id="player-hp-text"></div>
+        </div>
+        <div class="bar bar--mana" id="player-mana-bar">
+          <div class="bar__label">Mana</div>
+          <div class="bar__fill" id="player-mana"></div>
+          <div class="bar__text" id="player-mana-text"></div>
+        </div>
+        <div class="bar bar--fatigue" id="player-fatigue-bar">
+          <div class="bar__label">Fatigue</div>
+          <div class="bar__fill" id="player-fatigue"></div>
+          <div class="bar__text" id="player-fatigue-text"></div>
+        </div>
       </div>
-      <div class="controls" role="group" aria-label="Game controls">
-        <button id="new-game" type="button">New Game</button>
-        <button id="continue-game" type="button">Continue</button>
+
+      <div class="hud__center">
+        <div class="cast" id="cast-bar">
+          <div class="cast__fill" id="cast-fill"></div>
+          <div class="cast__text" id="cast-text"></div>
+        </div>
+        <div class="target" id="target-frame">
+          <div class="target__name" id="target-name">No Target</div>
+          <div class="target__bar">
+            <div class="target__fill" id="target-hp"></div>
+          </div>
+        </div>
       </div>
-    </header>
 
-    <section class="status" aria-live="polite">
-      <div class="resource"><span>Mana</span> <strong id="mana">0</strong></div>
-      <div class="resource"><span>Fatigue</span> <strong id="fatigue">0</strong></div>
-      <div class="resource"><span>Reputation</span> <strong id="reputation">0</strong></div>
-    </section>
+      <div class="hud__right">
+        <div class="panel quest" id="quest-panel">
+          <h3>Quest</h3>
+          <p id="quest-text">Talk to the camp guide.</p>
+        </div>
+        <div class="panel inventory" id="inventory-panel">
+          <h3>Inventory</h3>
+          <ul id="inventory-list"></ul>
+        </div>
+      </div>
 
-    <section class="scene" aria-live="polite" aria-atomic="true">
-      <h2 id="scene-title">Loading...</h2>
-      <div id="scene-text" class="scene__text"></div>
-    </section>
+      <div class="hud__bottom">
+        <div class="hotbar" id="hotbar">
+          <button class="hotbar__slot" data-slot="1">
+            <span class="hotbar__key">1</span>
+            <span class="hotbar__name">Arc Bolt</span>
+            <span class="hotbar__mana">4</span>
+            <span class="hotbar__cooldown"></span>
+          </button>
+          <button class="hotbar__slot" data-slot="2">
+            <span class="hotbar__key">2</span>
+            <span class="hotbar__name">Sigil Snare</span>
+            <span class="hotbar__mana">12</span>
+            <span class="hotbar__cooldown"></span>
+          </button>
+          <button class="hotbar__slot" data-slot="3">
+            <span class="hotbar__key">3</span>
+            <span class="hotbar__name">Ward Shell</span>
+            <span class="hotbar__mana">18</span>
+            <span class="hotbar__cooldown"></span>
+          </button>
+          <button class="hotbar__slot" data-slot="4">
+            <span class="hotbar__key">4</span>
+            <span class="hotbar__name">Nova Pulse</span>
+            <span class="hotbar__mana">26</span>
+            <span class="hotbar__cooldown"></span>
+          </button>
+        </div>
+        <div class="controls">
+          <p><strong>Controls:</strong> WASD move, Q/E rotate, RMB drag/steer, mouse wheel zoom, Tab target, LMB select, 1–4 cast, E interact.</p>
+        </div>
+      </div>
 
-    <section class="choices" aria-label="Choices">
-      <div id="choices"></div>
-    </section>
+      <div class="dialogue" id="dialogue">
+        <div class="dialogue__box">
+          <div class="dialogue__title" id="dialogue-title"></div>
+          <div class="dialogue__text" id="dialogue-text"></div>
+          <button id="dialogue-close" type="button">Close</button>
+        </div>
+      </div>
 
-    <aside class="log" aria-label="Event log">
-      <h3>Log</h3>
-      <div id="log-entries" class="log__entries"></div>
-    </aside>
-  </main>
+      <div class="combat-text" id="combat-text"></div>
+    </div>
+  </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
   <script src="game.js"></script>
 </body>
 </html>
