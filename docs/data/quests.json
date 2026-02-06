@@ -1,0 +1,160 @@
+[
+  {
+    "id": "clearWilds",
+    "title": "Cull the Stalkers",
+    "giver": "rysa",
+    "premise": "Rysa wants the forest route cleared for supply runners.",
+    "steps": [
+      {
+        "id": "stalkers",
+        "text": "Defeat wild stalkers prowling the forest path.",
+        "type": "kill",
+        "target": "stalker",
+        "count": 6
+      }
+    ],
+    "reward": { "gold": 25, "xp": 50 }
+  },
+  {
+    "id": "recoverRelics",
+    "title": "Lost Camp Relics",
+    "giver": "miro",
+    "premise": "Archivist Miro needs relic shards to rebuild the camp archive.",
+    "steps": [
+      {
+        "id": "collect-relics",
+        "text": "Collect relic shards scattered near the ruins.",
+        "type": "loot",
+        "target": "relic_shard",
+        "count": 3
+      }
+    ],
+    "reward": { "gold": 30, "xp": 80 }
+  },
+  {
+    "id": "escortScribe",
+    "title": "Escort the Scribe",
+    "giver": "miro",
+    "premise": "Scribe Ilen must reach the ruin gate safely.",
+    "steps": [
+      {
+        "id": "escort",
+        "text": "Keep Scribe Ilen close until she reaches the gate.",
+        "type": "escort",
+        "target": "scribe",
+        "count": 1
+      }
+    ],
+    "reward": { "gold": 40, "mana": 10 }
+  },
+  {
+    "id": "ritualStones",
+    "title": "Ritual Alignment",
+    "giver": "kato",
+    "premise": "Activate the ritual stones in order to stabilize the ruins.",
+    "steps": [
+      {
+        "id": "ritual-activate",
+        "text": "Activate ritual stones in sequence.",
+        "type": "sequence",
+        "target": "ritual",
+        "count": 3
+      }
+    ],
+    "reward": { "gold": 20, "xp": 90 }
+  },
+  {
+    "id": "miniBoss",
+    "title": "Break the Brute",
+    "giver": "kato",
+    "premise": "A cave brute blocks the gate. Learn its pattern and bring it down.",
+    "steps": [
+      {
+        "id": "reach-gate",
+        "text": "Reach the cave gate and draw out the brute.",
+        "type": "reach",
+        "target": "cave_gate",
+        "count": 1
+      },
+      {
+        "id": "defeat-brute",
+        "text": "Defeat the cave brute after it charges.",
+        "type": "kill",
+        "target": "brute",
+        "count": 1
+      }
+    ],
+    "reward": { "gold": 60, "xp": 120, "item": "caveward_ring" }
+  },
+  {
+    "id": "casterHunt",
+    "title": "Silence the Casters",
+    "giver": "rysa",
+    "premise": "Rogue seers are disrupting the camp's wards.",
+    "steps": [
+      {
+        "id": "seer-hunt",
+        "text": "Disrupt rogue seers at the lake shore.",
+        "type": "kill",
+        "target": "seer",
+        "count": 4
+      }
+    ],
+    "reward": { "gold": 35, "xp": 70 }
+  },
+  {
+    "id": "lakeSamples",
+    "title": "Lake Residue",
+    "giver": "nera",
+    "premise": "Herbalist Nera needs shimmering residue from the lake.",
+    "steps": [
+      {
+        "id": "sample",
+        "text": "Collect residue samples along the lake.",
+        "type": "interact",
+        "target": "sample",
+        "count": 2
+      }
+    ],
+    "reward": { "gold": 25, "mana": 6 }
+  },
+  {
+    "id": "hermitNote",
+    "title": "Hermit's Note",
+    "giver": "vale",
+    "premise": "Courier Vale needs a note delivered to the hermit.",
+    "steps": [
+      {
+        "id": "deliver-note",
+        "text": "Deliver the sealed note to Hermit Orren.",
+        "type": "talk",
+        "target": "orra",
+        "count": 1
+      }
+    ],
+    "reward": { "gold": 20, "xp": 50 }
+  },
+  {
+    "id": "wardTheRuins",
+    "title": "Ward the Ruins",
+    "giver": "miro",
+    "premise": "A guardian stirs among the ruins. Channel energy into the wards.",
+    "steps": [
+      {
+        "id": "guardian",
+        "text": "Defeat the ruin guardian and recover its ward core.",
+        "type": "kill",
+        "target": "guardian",
+        "count": 1
+      },
+      {
+        "id": "return-core",
+        "text": "Return the ward core to Archivist Miro.",
+        "type": "talk",
+        "target": "miro",
+        "count": 1
+      }
+    ],
+    "reward": { "gold": 50, "xp": 110, "item": "luminous_band" }
+  }
+]

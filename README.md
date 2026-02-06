@@ -13,18 +13,28 @@ A single-player, browser-playable 3D RPG prototype with a third-person camera, t
 4. GitHub Pages will publish the site at the provided URL.
 
 ## Controls
-- **WASD**: Move relative to camera
-- **Q/E**: Rotate player
+- **WASD**: Move relative to the camera on the ground plane
+- **Shift**: Sprint
+- **Q/E**: Quick camera turn
 - **Right Mouse (drag)**: Rotate camera
-- **Right Mouse (hold)**: Steer and auto-face camera direction
 - **Mouse Wheel**: Zoom
 - **Left Click**: Target enemy
 - **Tab**: Cycle nearby targets
-- **1-6**: Cast abilities
+- **1-8**: Cast abilities
 - **F**: Interact / Talk
+- **I**: Inventory
 - **J**: Quest log
 - **H**: Toggle help panel
 - **O**: Manual save
+
+## Game Data
+Static data is kept in JSON files under `/docs/data/` so you can expand content without touching logic:
+- `items.json`: item definitions (id, stats, rarity, value)
+- `spells.json`: spell definitions and hotbar keys
+- `quests.json`: quest definitions with steps and rewards
+- `npcs.json`: NPC placements, dialogue IDs, and merchant stock
+
+To add new items or quests, add a new entry to the relevant JSON file and reference the `id` in quests or vendors.
 
 ## Notes
 - Three.js is loaded via CDN.
