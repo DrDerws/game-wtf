@@ -80,6 +80,69 @@ load_game={
 "type": "key"
 }]
 }
+attack={
+"deadzone": 0.5,
+"events": [{
+"button_index": 1,
+"type": "mouse_button"
+}]
+}
+hotbar_1={
+"deadzone": 0.5,
+"events": [{
+"keycode": 49,
+"type": "key"
+}]
+}
+hotbar_2={
+"deadzone": 0.5,
+"events": [{
+"keycode": 50,
+"type": "key"
+}]
+}
+hotbar_3={
+"deadzone": 0.5,
+"events": [{
+"keycode": 51,
+"type": "key"
+}]
+}
+hotbar_4={
+"deadzone": 0.5,
+"events": [{
+"keycode": 52,
+"type": "key"
+}]
+}
+hotbar_5={
+"deadzone": 0.5,
+"events": [{
+"keycode": 53,
+"type": "key"
+}]
+}
+hotbar_6={
+"deadzone": 0.5,
+"events": [{
+"keycode": 54,
+"type": "key"
+}]
+}
+toggle_hints={
+"deadzone": 0.5,
+"events": [{
+"keycode": 72,
+"type": "key"
+}]
+}
+toggle_debug={
+"deadzone": 0.5,
+"events": [{
+"keycode": 4194336,
+"type": "key"
+}]
+}
 
 [physics]
 

@@ -10,8 +10,11 @@ signal fuel_changed
 
 var fuel: float = 0.0
 var is_lit: bool = false
+var flicker_timer: float = 0.0
 
-@onready var flame_mesh: MeshInstance3D = $Flame
+@onready var ember: MeshInstance3D = $Ember
+@onready var flame_particles: GPUParticles3D = $FlameParticles
+@onready var smoke_particles: GPUParticles3D = $SmokeParticles
 @onready var light: OmniLight3D = $FireLight
 
 func _ready() -> void:
@@ -34,6 +37,10 @@ func _process(delta: float) -> void:
 	if not is_lit:
 		return
 	fuel -= delta
+	flicker_timer += delta
+	if flicker_timer >= 0.1:
+		flicker_timer = 0.0
+		light.light_energy = randf_range(2.2, 3.0)
 	if fuel <= 0.0:
 		fuel = 0.0
 		is_lit = false
@@ -41,7 +48,9 @@ func _process(delta: float) -> void:
 	fuel_changed.emit()
 
 func _update_visuals() -> void:
-	flame_mesh.visible = is_lit
+	ember.visible = is_lit or fuel > 0.0
+	flame_particles.emitting = is_lit
+	smoke_particles.emitting = is_lit
 	light.visible = is_lit
 
 func refresh() -> void:

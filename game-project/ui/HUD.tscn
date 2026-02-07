@@ -10,8 +10,6 @@
 	anchor_bottom = 1.0
 
 [node name="TopLeft" type="VBoxContainer" parent="Root"]
-	anchor_right = 0.0
-	anchor_bottom = 0.0
 	offset_left = 16.0
 	offset_top = 16.0
 
@@ -21,17 +19,23 @@
 [node name="TempLabel" type="Label" parent="Root/TopLeft"]
 	text = "Ambient: -0.0 C"
 
+[node name="WeatherLabel" type="Label" parent="Root/TopLeft"]
+	text = "Weather: Clear"
+
 [node name="WindLabel" type="Label" parent="Root/TopLeft"]
 	text = "Wind: 0%"
 
 [node name="TopRight" type="VBoxContainer" parent="Root"]
 	anchor_left = 1.0
 	anchor_right = 1.0
-	offset_left = -300.0
+	offset_left = -340.0
 	offset_top = 16.0
 
 [node name="Objectives" type="Label" parent="Root/TopRight"]
-	text = "Objective:"
+	text = "Objectives:"
+
+[node name="ObjectiveList" type="Label" parent="Root/TopRight"]
+	text = ""
 
 [node name="ObjectiveDistance" type="Label" parent="Root/TopRight"]
 	text = ""
@@ -40,7 +44,7 @@
 	anchor_top = 1.0
 	anchor_bottom = 1.0
 	offset_left = 16.0
-	offset_top = -120.0
+	offset_top = -220.0
 
 [node name="HealthLabel" type="Label" parent="Root/BottomLeft"]
 	text = "Health: 100"
@@ -48,23 +52,51 @@
 [node name="TempStatus" type="Label" parent="Root/BottomLeft"]
 	text = "Body Temp: 36 (Warm)"
 
+[node name="NeedsBars" type="VBoxContainer" parent="Root/BottomLeft"]
+
+[node name="HungerBar" type="ProgressBar" parent="Root/BottomLeft/NeedsBars"]
+	min_value = 0.0
+	max_value = 100.0
+	value = 100.0
+
+[node name="ThirstBar" type="ProgressBar" parent="Root/BottomLeft/NeedsBars"]
+	min_value = 0.0
+	max_value = 100.0
+	value = 100.0
+
+[node name="FatigueBar" type="ProgressBar" parent="Root/BottomLeft/NeedsBars"]
+	min_value = 0.0
+	max_value = 100.0
+	value = 0.0
+
+[node name="NeedsLabel" type="Label" parent="Root/BottomLeft"]
+	text = "Hunger: 100  Thirst: 100  Fatigue: 0"
+
 [node name="BottomRight" type="VBoxContainer" parent="Root"]
 	anchor_left = 1.0
 	anchor_top = 1.0
 	anchor_right = 1.0
 	anchor_bottom = 1.0
-	offset_left = -200.0
-	offset_top = -120.0
+	offset_left = -260.0
+	offset_top = -140.0
 
-[node name="NeedsLabel" type="Label" parent="Root/BottomRight"]
-	text = "Hunger: 100\nThirst: 100\nFatigue: 0"
+[node name="Hotbar" type="HBoxContainer" parent="Root/BottomRight"]
+	alignment = 1
+
+[node name="DebugLabel" type="Label" parent="Root"]
+	anchor_left = 0.5
+	anchor_right = 0.5
+	offset_left = -180.0
+	offset_top = 16.0
+	visible = false
+	text = "Debug"
 
 [node name="Center" type="VBoxContainer" parent="Root"]
 	anchor_left = 0.5
 	anchor_top = 0.5
 	anchor_right = 0.5
 	anchor_bottom = 0.5
-	offset_left = -120.0
+	offset_left = -150.0
 	offset_top = 120.0
 
 [node name="InteractLabel" type="Label" parent="Root/Center"]
@@ -73,16 +105,28 @@
 [node name="MessageLabel" type="Label" parent="Root/Center"]
 	text = ""
 
+[node name="Hints" type="PanelContainer" parent="Root"]
+	anchor_left = 0.5
+	anchor_right = 0.5
+	offset_left = -220.0
+	offset_top = 16.0
+	offset_right = 220.0
+	visible = true
+
+[node name="HintsLabel" type="Label" parent="Root/Hints"]
+	text = "WASD Move  |  RMB Rotate  |  Mouse Wheel Zoom\nE Gather/Use  |  LMB Chop  |  1-6 Hotbar  |  I Inventory  |  C Craft\nF5 Save  |  F9 Load  |  H Toggle Hints  |  F3 Debug"
+	autowrap_mode = 3
+
 [node name="InventoryPanel" type="PanelContainer" parent="Root"]
 	visible = false
 	anchor_left = 0.5
 	anchor_top = 0.5
 	anchor_right = 0.5
 	anchor_bottom = 0.5
-	offset_left = -180.0
-	offset_top = -200.0
-	offset_right = 180.0
-	offset_bottom = 200.0
+	offset_left = -220.0
+	offset_top = -220.0
+	offset_right = 220.0
+	offset_bottom = 220.0
 
 [node name="VBox" type="VBoxContainer" parent="Root/InventoryPanel"]
 	margin_left = 12.0
@@ -93,48 +137,9 @@
 [node name="Label" type="Label" parent="Root/InventoryPanel/VBox"]
 	text = "Inventory"
 
-[node name="StickRow" type="HBoxContainer" parent="Root/InventoryPanel/VBox"]
-
-[node name="StickCount" type="Label" parent="Root/InventoryPanel/VBox/StickRow"]
-	text = "Sticks: 0"
-
-[node name="DropStick" type="Button" parent="Root/InventoryPanel/VBox/StickRow"]
-	text = "Drop"
-
-[node name="TinderRow" type="HBoxContainer" parent="Root/InventoryPanel/VBox"]
-
-[node name="TinderCount" type="Label" parent="Root/InventoryPanel/VBox/TinderRow"]
-	text = "Tinder: 0"
-
-[node name="DropTinder" type="Button" parent="Root/InventoryPanel/VBox/TinderRow"]
-	text = "Drop"
-
-[node name="StoneRow" type="HBoxContainer" parent="Root/InventoryPanel/VBox"]
-
-[node name="StoneCount" type="Label" parent="Root/InventoryPanel/VBox/StoneRow"]
-	text = "Stone: 0"
-
-[node name="DropStone" type="Button" parent="Root/InventoryPanel/VBox/StoneRow"]
-	text = "Drop"
-
-[node name="FishRow" type="HBoxContainer" parent="Root/InventoryPanel/VBox"]
-
-[node name="FishCount" type="Label" parent="Root/InventoryPanel/VBox/FishRow"]
-	text = "Fish: 0"
-
-[node name="DropFish" type="Button" parent="Root/InventoryPanel/VBox/FishRow"]
-	text = "Drop"
-
-[node name="WaterRow" type="HBoxContainer" parent="Root/InventoryPanel/VBox"]
-
-[node name="WaterCount" type="Label" parent="Root/InventoryPanel/VBox/WaterRow"]
-	text = "Water: 0"
-
-[node name="DropWater" type="Button" parent="Root/InventoryPanel/VBox/WaterRow"]
-	text = "Drop"
-
-[node name="CampfireCount" type="Label" parent="Root/InventoryPanel/VBox"]
-	text = "Campfire Kit: 0"
+[node name="ItemGrid" type="GridContainer" parent="Root/InventoryPanel/VBox"]
+	columns = 2
+	custom_minimum_size = Vector2(280, 200)
 
 [node name="CraftingPanel" type="PanelContainer" parent="Root"]
 	visible = false
@@ -142,10 +147,10 @@
 	anchor_top = 0.5
 	anchor_right = 0.5
 	anchor_bottom = 0.5
-	offset_left = -180.0
-	offset_top = -200.0
-	offset_right = 180.0
-	offset_bottom = 200.0
+	offset_left = -220.0
+	offset_top = -220.0
+	offset_right = 220.0
+	offset_bottom = 220.0
 
 [node name="VBox" type="VBoxContainer" parent="Root/CraftingPanel"]
 	margin_left = 12.0
@@ -156,23 +161,21 @@
 [node name="Label" type="Label" parent="Root/CraftingPanel/VBox"]
 	text = "Crafting"
 
+[node name="RecipeList" type="Label" parent="Root/CraftingPanel/VBox"]
+	text = "Campfire Kit: 5 Stick, 3 Tinder"
+
 [node name="CraftKit" type="Button" parent="Root/CraftingPanel/VBox"]
-	text = "Craft Campfire Kit (5 Sticks, 3 Tinder)"
+	text = "Craft Campfire Kit"
 
 [node name="PlaceFire" type="Button" parent="Root/CraftingPanel/VBox"]
 	text = "Place Campfire"
 
 [node name="LightFire" type="Button" parent="Root/CraftingPanel/VBox"]
-	text = "Light Fire"
+	text = "Light Fire (Flint + Tinder)"
 
 [node name="AddFuel" type="Button" parent="Root/CraftingPanel/VBox"]
 	text = "Add Fuel (1 Stick)"
 
-[connection signal="pressed" from="Root/InventoryPanel/VBox/StickRow/DropStick" to="." method="_on_drop_stick_pressed"]
-[connection signal="pressed" from="Root/InventoryPanel/VBox/TinderRow/DropTinder" to="." method="_on_drop_tinder_pressed"]
-[connection signal="pressed" from="Root/InventoryPanel/VBox/StoneRow/DropStone" to="." method="_on_drop_stone_pressed"]
-[connection signal="pressed" from="Root/InventoryPanel/VBox/FishRow/DropFish" to="." method="_on_drop_fish_pressed"]
-[connection signal="pressed" from="Root/InventoryPanel/VBox/WaterRow/DropWater" to="." method="_on_drop_water_pressed"]
 [connection signal="pressed" from="Root/CraftingPanel/VBox/CraftKit" to="." method="_on_craft_kit_pressed"]
 [connection signal="pressed" from="Root/CraftingPanel/VBox/PlaceFire" to="." method="_on_place_fire_pressed"]
 [connection signal="pressed" from="Root/CraftingPanel/VBox/LightFire" to="." method="_on_light_fire_pressed"]
