@@ -5,11 +5,11 @@ extends Node3D
 @onready var error_label: Label3D = $ErrorLabel
 
 func _ready() -> void:
-	var packed := load(main_scene_path)
+	var packed: PackedScene = load(main_scene_path) as PackedScene
 	if packed == null or not (packed is PackedScene):
 		_show_error("Main failed to load")
 		return
-	var instance := packed.instantiate()
+	var instance: Node3D = packed.instantiate() as Node3D
 	if instance == null:
 		_show_error("Main failed to load")
 		return

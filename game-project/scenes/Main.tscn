@@ -8,10 +8,10 @@
 
 [sub_resource type="Environment" id="1"]
 	background_mode = 2
-	background_color = Color(0.55, 0.62, 0.7)
+	background_color = Color(0.55, 0.62, 0.7, 1.0)
 	fog_enabled = true
 	fog_density = 0.03
-	fog_color = Color(0.7, 0.8, 0.9)
+	fog_color = Color(0.7, 0.8, 0.9, 1.0)
 
 [sub_resource type="PlaneMesh" id="2"]
 	size = Vector2(60, 60)
