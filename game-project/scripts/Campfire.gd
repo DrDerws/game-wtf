@@ -1,4 +1,5 @@
 extends Node3D
+class_name Campfire
 
 signal fire_lit
 signal fuel_changed

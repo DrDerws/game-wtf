@@ -23,8 +23,8 @@ var health: float = 100.0
 var safe_temp_timer: float = 0.0
 var autosave_timer: float = 0.0
 
-var campfire_scene := preload("res://scenes/Campfire.tscn")
-var campfire_instance: Node3D = null
+var campfire_scene: PackedScene = preload("res://scenes/Campfire.tscn")
+var campfire_instance: Campfire = null
 
 const BASE_OBJECTIVES := [
 	{"id": "sticks", "text": "Gather 5 sticks", "target": 5},
@@ -68,7 +68,7 @@ func _update_time(delta: float) -> void:
 		time_of_day -= 24.0
 
 func get_ambient_temperature() -> float:
-	var day_factor := 0.5 - 0.5 * cos((time_of_day / 24.0) * TAU)
+	var day_factor: float = 0.5 - 0.5 * cos((time_of_day / 24.0) * TAU)
 	return lerp(-30.0, -8.0, day_factor)
 
 func _update_needs(delta: float) -> void:
@@ -103,15 +103,15 @@ func _is_near_fire() -> bool:
 		return false
 	if not campfire_instance.is_lit:
 		return false
-	var dist := campfire_instance.global_position.distance_to(player.global_position)
+	var dist: float = campfire_instance.global_position.distance_to(player.global_position)
 	return dist <= campfire_instance.heat_radius
 
 func _interact() -> void:
 	if hud.is_modal_open():
 		return
-	var interactable := player.get_interactable()
+	var interactable: Node3D = player.get_interactable()
 	if interactable and interactable.has_method("harvest"):
-		var harvested := interactable.harvest()
+		var harvested: Dictionary = interactable.harvest()
 		inventory.add_item(harvested.item_type, harvested.amount)
 		return
 	if campfire_instance and campfire_instance.global_position.distance_to(player.global_position) <= 3.0:
@@ -121,7 +121,7 @@ func _interact() -> void:
 		return
 
 func _update_objectives(delta: float) -> void:
-	var current := get_current_objective()
+	var current: Dictionary = get_current_objective()
 	if current.is_empty():
 		return
 	if current.id == "sticks" and inventory.get_count("Stick") >= current.target:
@@ -139,7 +139,7 @@ func _update_objectives(delta: float) -> void:
 			advance_objective()
 
 func _update_objective_marker() -> void:
-	var current := get_current_objective()
+	var current: Dictionary = get_current_objective()
 	if current.is_empty():
 		objective_marker.visible = false
 		return
@@ -158,10 +158,10 @@ func _update_objective_marker() -> void:
 
 func _nearest_resource(group_name: String) -> Node3D:
 	var nearest: Node3D = null
-	var nearest_dist := INF
+	var nearest_dist: float = INF
 	for node in get_tree().get_nodes_in_group(group_name):
 		if node is Node3D:
-			var dist := node.global_position.distance_to(player.global_position)
+			var dist: float = node.global_position.distance_to(player.global_position)
 			if dist < nearest_dist:
 				nearest_dist = dist
 				nearest = node
@@ -226,7 +226,7 @@ func place_campfire() -> void:
 	if campfire_instance:
 		return
 	inventory.remove_item("CampfireKit", 1)
-	campfire_instance = campfire_scene.instantiate()
+	campfire_instance = campfire_scene.instantiate() as Campfire
 	campfire_container.add_child(campfire_instance)
 	campfire_instance.global_position = player.global_position + player.global_transform.basis.z * 2.5
 	campfire_instance.add_fuel(30.0)
@@ -268,7 +268,7 @@ func _autosave(delta: float) -> void:
 		save_game()
 
 func save_game() -> void:
-	var data := {
+	var data: Dictionary = {
 		"player_pos": _vector_to_array(player.global_position),
 		"time_of_day": time_of_day,
 		"needs": {
@@ -294,23 +294,24 @@ func load_game() -> void:
 		hud.show_message("No save found")
 		return
 	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
-	var data := JSON.parse_string(file.get_as_text())
+	var data: Variant = JSON.parse_string(file.get_as_text())
 	if typeof(data) != TYPE_DICTIONARY:
 		hud.show_message("Save data corrupted")
 		return
-	player.global_position = _array_to_vector(data.get("player_pos", _vector_to_array(player.global_position)))
-	time_of_day = data.get("time_of_day", time_of_day)
-	var needs := data.get("needs", {})
+	var data_dict: Dictionary = data
+	player.global_position = _array_to_vector(data_dict.get("player_pos", _vector_to_array(player.global_position)))
+	time_of_day = data_dict.get("time_of_day", time_of_day)
+	var needs: Dictionary = data_dict.get("needs", {})
 	body_temp = needs.get("body_temp", body_temp)
 	hunger = needs.get("hunger", hunger)
 	thirst = needs.get("thirst", thirst)
 	fatigue = needs.get("fatigue", fatigue)
 	health = needs.get("health", health)
 	safe_temp_timer = needs.get("safe_timer", safe_temp_timer)
-	inventory.from_dict(data.get("inventory", {}))
-	_reset_objectives(int(data.get("objective_index", _get_objective_index())))
-	if data.get("campfire", false):
-		_restore_campfire(data.get("campfire_state", {}))
+	inventory.from_dict(data_dict.get("inventory", {}))
+	_reset_objectives(int(data_dict.get("objective_index", _get_objective_index())))
+	if data_dict.get("campfire", false):
+		_restore_campfire(data_dict.get("campfire_state", {}))
 	else:
 		_clear_campfire()
 	_update_hud()
@@ -327,7 +328,7 @@ func _get_campfire_state() -> Dictionary:
 
 func _restore_campfire(state: Dictionary) -> void:
 	_clear_campfire()
-	campfire_instance = campfire_scene.instantiate()
+	campfire_instance = campfire_scene.instantiate() as Campfire
 	campfire_container.add_child(campfire_instance)
 	campfire_instance.global_position = _array_to_vector(state.get("position", _vector_to_array(player.global_position)))
 	campfire_instance.fuel = state.get("fuel", 0.0)
@@ -344,7 +345,7 @@ func _clear_campfire() -> void:
 func _get_interact_prompt() -> String:
 	if hud.is_modal_open():
 		return ""
-	var interactable := player.get_interactable()
+	var interactable: Node3D = player.get_interactable()
 	if interactable != null and interactable.has_method("harvest"):
 		return "Press E to gather"
 	if campfire_instance and campfire_instance.global_position.distance_to(player.global_position) <= 3.0:
@@ -352,7 +353,7 @@ func _get_interact_prompt() -> String:
 	return ""
 
 func _get_objective_distance() -> String:
-	var current := get_current_objective()
+	var current: Dictionary = get_current_objective()
 	if current.is_empty():
 		return ""
 	if current.id == "sticks":
@@ -364,10 +365,10 @@ func _get_objective_distance() -> String:
 	return ""
 
 func _distance_to_nearest(group_name: String) -> String:
-	var nearest := INF
+	var nearest: float = INF
 	for node in get_tree().get_nodes_in_group(group_name):
 		if node is Node3D:
-			var dist := node.global_position.distance_to(player.global_position)
+			var dist: float = node.global_position.distance_to(player.global_position)
 			if dist < nearest:
 				nearest = dist
 	if nearest == INF:
