@@ -33,3 +33,8 @@
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="InteractArea"]
 	shape = SubResource("3")
+
+[node name="Hand" type="Node3D" parent="."]
+	position = Vector3(0.4, 0.7, -0.4)
+
+[node name="HeldItemMesh" type="MeshInstance3D" parent="Hand"]

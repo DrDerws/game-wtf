@@ -1,41 +1,50 @@
-[gd_scene load_steps=13 format=3 uid="uid://c4as7rkw6r8c2"]
+[gd_scene load_steps=14 format=3 uid="uid://c4as7rkw6r8c2"]
 
 [ext_resource type="PackedScene" path="res://scenes/Player.tscn" id="1"]
 [ext_resource type="Script" path="res://scripts/Game.gd" id="2"]
 [ext_resource type="Script" path="res://scripts/Inventory.gd" id="3"]
 [ext_resource type="PackedScene" path="res://ui/HUD.tscn" id="4"]
-[ext_resource type="Script" path="res://scripts/ResourceNode.gd" id="5"]
 
 [sub_resource type="Environment" id="1"]
 	background_mode = 2
-	background_color = Color(0.55, 0.62, 0.7, 1.0)
+	background_color = Color(0.62, 0.72, 0.82, 1.0)
 	fog_enabled = true
-	fog_density = 0.03
-	fog_color = Color(0.7, 0.8, 0.9, 1.0)
+	fog_density = 0.02
+	fog_color = Color(0.78, 0.86, 0.94, 1.0)
+	ambient_light_color = Color(0.68, 0.74, 0.86, 1.0)
+	ambient_light_energy = 1.1
 
 [sub_resource type="PlaneMesh" id="2"]
-	size = Vector2(60, 60)
+	size = Vector2(120, 120)
+	subdivide_width = 100
+	subdivide_depth = 100
 
 [sub_resource type="BoxShape3D" id="3"]
-	size = Vector3(60, 1, 60)
+	size = Vector3(120, 8, 120)
 
-[sub_resource type="CylinderShape3D" id="6"]
-	radius = 0.5
-	height = 2.8
+[sub_resource type="Shader" id="4"]
+	code = "shader_type spatial;\nrender_mode cull_back, diffuse_burley, specular_schlick_ggx;\n\nuniform vec3 snow_color : source_color = vec3(0.85, 0.9, 0.98);\nuniform vec3 grass_color : source_color = vec3(0.22, 0.35, 0.26);\nuniform float snow_height = 1.1;\n\nvoid fragment() {\n\tfloat height = WORLD_POSITION.y;\tfloat blend = smoothstep(snow_height - 0.6, snow_height + 0.4, height);\tvec3 base = mix(grass_color, snow_color, blend);\tfloat noise = fract(sin(dot(WORLD_POSITION.xz, vec2(12.9898, 78.233))) * 43758.5453);\tbase = mix(base, base * 1.15, noise * 0.25);\tALBEDO = base;\tROUGHNESS = 0.95;\tSPECULAR = 0.1;\n}\n"
 
-[sub_resource type="SphereShape3D" id="7"]
-	radius = 0.7
+[sub_resource type="ShaderMaterial" id="5"]
+	shader = SubResource("4")
 
-[sub_resource type="CylinderMesh" id="4"]
-	radius = 0.4
-	height = 3.0
+[sub_resource type="Shader" id="6"]
+	code = "shader_type spatial;\nrender_mode cull_back, blend_mix, depth_draw_alpha_prepass, specular_schlick_ggx;\n\nuniform vec3 water_color : source_color = vec3(0.12, 0.35, 0.48);\nuniform float wave_amp = 0.08;\nuniform float wave_freq = 0.9;\n\nvoid vertex() {\tVERTEX.y += sin(TIME * 1.3 + VERTEX.x * wave_freq) * wave_amp;\tVERTEX.y += cos(TIME * 1.0 + VERTEX.z * wave_freq) * wave_amp;\n}\n\nvoid fragment() {\tALBEDO = water_color;\tROUGHNESS = 0.2;\tSPECULAR = 0.8;\tALPHA = 0.8;\n}\n"
 
-[sub_resource type="SphereMesh" id="5"]
-	radius = 0.7
+[sub_resource type="ShaderMaterial" id="7"]
+	shader = SubResource("6")
 
-[sub_resource type="ConeMesh" id="8"]
-	bottom_radius = 0.3
-	height = 0.8
+[sub_resource type="ParticleProcessMaterial" id="8"]
+	emission_shape = 1
+	emission_box_extents = Vector3(35, 12, 35)
+	gravity = Vector3(0, -3.0, 0)
+	initial_velocity = 0.8
+	angle = 12.0
+	scale = 0.08
+	scale_random = 0.5
+
+[sub_resource type="QuadMesh" id="9"]
+	size = Vector2(0.08, 0.08)
 
 [node name="Main" type="Node3D"]
 	script = ExtResource("2")
@@ -44,154 +53,46 @@
 	environment = SubResource("1")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-	light_energy = 1.1
-	rotation_degrees = Vector3(-45, 30, 0)
+	light_energy = 1.3
+	light_color = Color(0.96, 0.92, 0.86, 1.0)
+	shadow_enabled = true
+	shadow_bias = 0.2
+	rotation_degrees = Vector3(-42, 32, 0)
 
 [node name="Ground" type="StaticBody3D" parent="."]
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Ground"]
 	mesh = SubResource("2")
+	material_override = SubResource("5")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Ground"]
 	shape = SubResource("3")
+	position = Vector3(0, 0, 0)
 
 [node name="Water" type="MeshInstance3D" parent="."]
 	mesh = SubResource("2")
-	position = Vector3(0, -0.05, -20)
-	scale = Vector3(0.6, 1, 0.6)
+	material_override = SubResource("7")
+	position = Vector3(0, -0.6, -20)
+	scale = Vector3(0.5, 1, 0.4)
 
 [node name="Player" parent="." instance=ExtResource("1")]
-	position = Vector3(0, 1.2, 6)
+	position = Vector3(0, 2.2, 10)
 
 [node name="Inventory" type="Node" parent="."]
 	script = ExtResource("3")
 
+[node name="ResourceRoot" type="Node3D" parent="."]
+
 [node name="Campfires" type="Node3D" parent="."]
 
+[node name="Weather" type="Node3D" parent="."]
+
+[node name="SnowParticles" type="GPUParticles3D" parent="Weather"]
+	amount = 1200
+	lifetime = 6.0
+	emitting = false
+	process_material = SubResource("8")
+	draw_pass_1 = SubResource("9")
+	visibility_aabb = AABB(-40, 0, -40, 80, 40, 80)
+
 [node name="HUD" parent="." instance=ExtResource("4")]
-
-[node name="ObjectiveMarker" type="MeshInstance3D" parent="."]
-	mesh = SubResource("8")
-	visible = false
-
-[node name="Tree1" type="StaticBody3D" parent="."]
-	position = Vector3(-6, 0, 2)
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Tree1"]
-	mesh = SubResource("4")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Tree1"]
-	shape = SubResource("6")
-
-[node name="Rock1" type="StaticBody3D" parent="."]
-	position = Vector3(8, 0, -4)
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Rock1"]
-	mesh = SubResource("5")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Rock1"]
-	shape = SubResource("7")
-
-[node name="StickNode1" type="Area3D" parent="."]
-	script = ExtResource("5")
-	position = Vector3(-4, 0.2, 4)
-	item_type = "Stick"
-	amount = 1
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="StickNode1"]
-	mesh = SubResource("4")
-	scale = Vector3(0.2, 0.2, 0.2)
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="StickNode1"]
-	shape = SubResource("7")
-
-[node name="StickNode2" type="Area3D" parent="."]
-	script = ExtResource("5")
-	position = Vector3(-2, 0.2, 8)
-	item_type = "Stick"
-	amount = 1
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="StickNode2"]
-	mesh = SubResource("4")
-	scale = Vector3(0.2, 0.2, 0.2)
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="StickNode2"]
-	shape = SubResource("7")
-
-[node name="StickNode3" type="Area3D" parent="."]
-	script = ExtResource("5")
-	position = Vector3(3, 0.2, 5)
-	item_type = "Stick"
-	amount = 1
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="StickNode3"]
-	mesh = SubResource("4")
-	scale = Vector3(0.2, 0.2, 0.2)
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="StickNode3"]
-	shape = SubResource("7")
-
-[node name="StickNode4" type="Area3D" parent="."]
-	script = ExtResource("5")
-	position = Vector3(5, 0.2, 9)
-	item_type = "Stick"
-	amount = 1
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="StickNode4"]
-	mesh = SubResource("4")
-	scale = Vector3(0.2, 0.2, 0.2)
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="StickNode4"]
-	shape = SubResource("7")
-
-[node name="StickNode5" type="Area3D" parent="."]
-	script = ExtResource("5")
-	position = Vector3(1, 0.2, 11)
-	item_type = "Stick"
-	amount = 1
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="StickNode5"]
-	mesh = SubResource("4")
-	scale = Vector3(0.2, 0.2, 0.2)
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="StickNode5"]
-	shape = SubResource("7")
-
-[node name="TinderNode1" type="Area3D" parent="."]
-	script = ExtResource("5")
-	position = Vector3(-6, 0.2, 10)
-	item_type = "Tinder"
-	amount = 1
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="TinderNode1"]
-	mesh = SubResource("5")
-	scale = Vector3(0.15, 0.15, 0.15)
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="TinderNode1"]
-	shape = SubResource("7")
-
-[node name="TinderNode2" type="Area3D" parent="."]
-	script = ExtResource("5")
-	position = Vector3(-1, 0.2, 12)
-	item_type = "Tinder"
-	amount = 1
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="TinderNode2"]
-	mesh = SubResource("5")
-	scale = Vector3(0.15, 0.15, 0.15)
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="TinderNode2"]
-	shape = SubResource("7")
-
-[node name="TinderNode3" type="Area3D" parent="."]
-	script = ExtResource("5")
-	position = Vector3(4, 0.2, 13)
-	item_type = "Tinder"
-	amount = 1
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="TinderNode3"]
-	mesh = SubResource("5")
-	scale = Vector3(0.15, 0.15, 0.15)
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="TinderNode3"]
-	shape = SubResource("7")
