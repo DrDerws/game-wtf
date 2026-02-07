@@ -26,7 +26,7 @@ var autosave_timer: float = 0.0
 var campfire_scene := preload("res://scenes/Campfire.tscn")
 var campfire_instance: Node3D = null
 
-var objectives := [
+const BASE_OBJECTIVES := [
 	{"id": "sticks", "text": "Gather 5 sticks", "target": 5},
 	{"id": "tinder", "text": "Gather 3 tinder", "target": 3},
 	{"id": "craft", "text": "Craft campfire", "target": 1},
@@ -34,7 +34,10 @@ var objectives := [
 	{"id": "survive", "text": "Survive until morning", "target": 1},
 ]
 
+var objectives: Array = []
+
 func _ready() -> void:
+	_reset_objectives()
 	inventory.inventory_changed.connect(_on_inventory_changed)
 	_update_hud()
 
@@ -111,8 +114,6 @@ func _interact() -> void:
 		var harvested := interactable.harvest()
 		inventory.add_item(harvested.item_type, harvested.amount)
 		return
-	if campfire_instance and campfire_instance.is_lit:
-		return
 	if campfire_instance and campfire_instance.global_position.distance_to(player.global_position) <= 3.0:
 		if inventory.remove_item("Stick", 1):
 			campfire_instance.add_fuel(30.0)
@@ -175,6 +176,13 @@ func advance_objective() -> void:
 	if objectives.is_empty():
 		return
 	objectives.remove_at(0)
+
+func _reset_objectives(start_index: int = 0) -> void:
+	objectives = BASE_OBJECTIVES.duplicate(true)
+	for index in range(start_index):
+		if objectives.is_empty():
+			return
+		objectives.remove_at(0)
 
 func _update_hud() -> void:
 	hud.update_hud({
@@ -272,6 +280,7 @@ func save_game() -> void:
 			"safe_timer": safe_temp_timer,
 		},
 		"inventory": inventory.to_dict(),
+		"objective_index": _get_objective_index(),
 		"campfire": campfire_instance != null,
 		"campfire_state": _get_campfire_state(),
 	}
@@ -282,10 +291,12 @@ func save_game() -> void:
 
 func load_game() -> void:
 	if not FileAccess.file_exists(SAVE_PATH):
+		hud.show_message("No save found")
 		return
 	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
 	var data := JSON.parse_string(file.get_as_text())
 	if typeof(data) != TYPE_DICTIONARY:
+		hud.show_message("Save data corrupted")
 		return
 	player.global_position = _array_to_vector(data.get("player_pos", _vector_to_array(player.global_position)))
 	time_of_day = data.get("time_of_day", time_of_day)
@@ -297,8 +308,11 @@ func load_game() -> void:
 	health = needs.get("health", health)
 	safe_temp_timer = needs.get("safe_timer", safe_temp_timer)
 	inventory.from_dict(data.get("inventory", {}))
+	_reset_objectives(int(data.get("objective_index", _get_objective_index())))
 	if data.get("campfire", false):
 		_restore_campfire(data.get("campfire_state", {}))
+	else:
+		_clear_campfire()
 	_update_hud()
 	player.input_enabled = true
 	
@@ -312,8 +326,7 @@ func _get_campfire_state() -> Dictionary:
 	}
 
 func _restore_campfire(state: Dictionary) -> void:
-	if campfire_instance:
-		campfire_instance.queue_free()
+	_clear_campfire()
 	campfire_instance = campfire_scene.instantiate()
 	campfire_container.add_child(campfire_instance)
 	campfire_instance.global_position = _array_to_vector(state.get("position", _vector_to_array(player.global_position)))
@@ -322,6 +335,11 @@ func _restore_campfire(state: Dictionary) -> void:
 	campfire_instance.fire_lit.connect(_on_fire_lit)
 	campfire_instance.fuel_changed.connect(_on_fire_fuel_changed)
 	campfire_instance.refresh()
+
+func _clear_campfire() -> void:
+	if campfire_instance:
+		campfire_instance.queue_free()
+		campfire_instance = null
 
 func _get_interact_prompt() -> String:
 	if hud.is_modal_open():
@@ -358,6 +376,9 @@ func _distance_to_nearest(group_name: String) -> String:
 
 func _vector_to_array(value: Vector3) -> Array:
 	return [value.x, value.y, value.z]
+
+func _get_objective_index() -> int:
+	return BASE_OBJECTIVES.size() - objectives.size()
 
 func _array_to_vector(value: Variant) -> Vector3:
 	if value is Array and value.size() == 3:
