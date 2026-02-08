@@ -12,7 +12,7 @@ anchors_preset = 1
 anchor_left = 0.02
 anchor_top = 0.02
 anchor_right = 0.32
-anchor_bottom = 0.2
+anchor_bottom = 0.32
 
 [node name="MarginContainer" type="MarginContainer" parent="Panel"]
 anchors_preset = 15
@@ -35,5 +35,17 @@ text = "Inventory"
 [node name="StickLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
 text = "Stick: 0"
 
+[node name="LogLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
+text = "Log: 0"
+
 [node name="TinderLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
 text = "Tinder: 0"
+
+[node name="StoneLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
+text = "Stone: 0"
+
+[node name="FlintSteelLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
+text = "Flint & Steel: 0"
+
+[node name="StoneAxeLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
+text = "Stone Axe: 0"

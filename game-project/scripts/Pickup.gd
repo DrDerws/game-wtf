@@ -5,6 +5,10 @@ extends Area3D
 
 func _ready():
 	add_to_group("pickup")
+	if display_name == "":
+		var items = get_tree().get_first_node_in_group("items")
+		if items != null:
+			display_name = items.get_display_name(item_id)
 
 func collect():
 	var inventory = get_tree().get_first_node_in_group("inventory")

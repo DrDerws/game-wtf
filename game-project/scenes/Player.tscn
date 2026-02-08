@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/Player.gd" id="1"]
 
@@ -12,6 +12,19 @@ height = 1.2
 
 [sub_resource type="SphereShape3D" id="3"]
 radius = 1.6
+
+[sub_resource type="CylinderMesh" id="4"]
+height = 0.6
+radius = 0.05
+
+[sub_resource type="BoxMesh" id="5"]
+size = Vector3(0.3, 0.1, 0.1)
+
+[sub_resource type="StandardMaterial3D" id="6"]
+albedo_color = Color(0.4, 0.25, 0.15, 1)
+
+[sub_resource type="StandardMaterial3D" id="7"]
+albedo_color = Color(0.6, 0.6, 0.65, 1)
 
 [node name="Player" type="CharacterBody3D"]
 script = ExtResource("1")
@@ -31,7 +44,37 @@ spring_length = 4.5
 [node name="Camera3D" type="Camera3D" parent="CameraPivot/SpringArm3D"]
 current = true
 
+[node name="ChopRay" type="RayCast3D" parent="CameraPivot/SpringArm3D/Camera3D"]
+collision_mask = 1
+
 [node name="InteractArea" type="Area3D" parent="."]
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="InteractArea"]
 shape = SubResource("3")
+
+[node name="HeldItems" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.35, 0.9, -0.2)
+
+[node name="StoneAxe" type="Node3D" parent="HeldItems"]
+
+[node name="Handle" type="MeshInstance3D" parent="HeldItems/StoneAxe"]
+mesh = SubResource("4")
+material_override = SubResource("6")
+transform = Transform3D(0.94, 0.34, 0, -0.34, 0.94, 0, 0, 0, 1, 0, 0, 0)
+
+[node name="Head" type="MeshInstance3D" parent="HeldItems/StoneAxe"]
+mesh = SubResource("5")
+material_override = SubResource("7")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.15, 0.2, 0)
+
+[node name="FlintSteel" type="Node3D" parent="HeldItems"]
+
+[node name="Flint" type="MeshInstance3D" parent="HeldItems/FlintSteel"]
+mesh = SubResource("5")
+material_override = SubResource("7")
+transform = Transform3D(0.6, 0, 0, 0, 0.4, 0, 0, 0, 0.6, 0, 0, 0)
+
+[node name="Steel" type="MeshInstance3D" parent="HeldItems/FlintSteel"]
+mesh = SubResource("5")
+material_override = SubResource("6")
+transform = Transform3D(0.4, 0, 0, 0, 0.2, 0, 0, 0, 0.4, 0.18, 0.1, 0)
