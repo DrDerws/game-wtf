@@ -22,5 +22,17 @@
   "stone_axe": {
     "display_name": "Stone Axe",
     "max_stack": 1
+  },
+  "campfire_kit": {
+    "display_name": "Campfire Kit",
+    "max_stack": 5
+  },
+  "tarp": {
+    "display_name": "Tarp",
+    "max_stack": 1
+  },
+  "tarp_tent": {
+    "display_name": "Tarp Tent",
+    "max_stack": 1
   }
 }

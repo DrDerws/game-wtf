@@ -12,7 +12,7 @@ anchors_preset = 1
 anchor_left = 0.02
 anchor_top = 0.02
 anchor_right = 0.32
-anchor_bottom = 0.32
+anchor_bottom = 0.5
 
 [node name="MarginContainer" type="MarginContainer" parent="Panel"]
 anchors_preset = 15
@@ -28,6 +28,7 @@ offset_bottom = -12.0
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+custom_constants/separation = 6
 
 [node name="Title" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
 text = "Inventory"
@@ -49,3 +50,27 @@ text = "Flint & Steel: 0"
 
 [node name="StoneAxeLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
 text = "Stone Axe: 0"
+
+[node name="CampfireKitLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
+text = "Campfire Kit: 0"
+
+[node name="TarpLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
+text = "Tarp: 0"
+
+[node name="TarpTentLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
+text = "Tarp Tent: 0"
+
+[node name="EquipTitle" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
+text = "Equip"
+
+[node name="EquipStoneAxe" type="Button" parent="Panel/MarginContainer/VBoxContainer"]
+text = "Equip Stone Axe"
+
+[node name="EquipFlintSteel" type="Button" parent="Panel/MarginContainer/VBoxContainer"]
+text = "Equip Flint & Steel"
+
+[node name="EquipCampfireKit" type="Button" parent="Panel/MarginContainer/VBoxContainer"]
+text = "Equip Campfire Kit"
+
+[node name="EquipTarpTent" type="Button" parent="Panel/MarginContainer/VBoxContainer"]
+text = "Equip Tarp Tent"

@@ -11,6 +11,7 @@ albedo_color = Color(0.35, 0.36, 0.4, 1)
 roughness = 0.9
 
 [node name="Rock" type="Node3D"]
+groups=["place_blocker"]
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
 mesh = SubResource("1")

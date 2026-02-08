@@ -3,12 +3,15 @@ extends Node3D
 @export var world_seed := 1337
 
 @onready var inventory_ui = $CanvasLayer/InventoryUI
+@onready var crafting_ui = $CanvasLayer/CraftingUI
 @onready var hotbar_ui = $CanvasLayer/Hotbar
+@onready var objective_tracker = $CanvasLayer/ObjectiveTracker
 @onready var props = $Props
 @onready var save_manager = $SaveManager
 
 func _ready():
 	inventory_ui.set_visible(false)
+	crafting_ui.set_visible(false)
 	_assign_tree_ids()
 	_connect_tree_signals()
 	if save_manager != null:
@@ -16,7 +19,15 @@ func _ready():
 
 func _unhandled_input(event):
 	if event.is_action_pressed("inventory"):
-		inventory_ui.set_visible(not inventory_ui.is_visible())
+		var next_state = not inventory_ui.is_visible()
+		inventory_ui.set_visible(next_state)
+		if next_state:
+			crafting_ui.set_visible(false)
+	if event.is_action_pressed("crafting"):
+		var next_state = not crafting_ui.is_visible()
+		crafting_ui.set_visible(next_state)
+		if next_state:
+			inventory_ui.set_visible(false)
 	if event.is_action_pressed("save_game"):
 		if save_manager != null:
 			save_manager.save_game()
@@ -42,6 +53,8 @@ func _connect_tree_signals():
 			tree.tree_felled.connect(_on_tree_felled)
 
 func _on_tree_felled(_tree_id: String):
+	if objective_tracker != null:
+		objective_tracker.mark_tree_chopped()
 	if save_manager != null:
 		save_manager.save_game()
 

@@ -18,6 +18,7 @@ const REQUIRED_INPUT_ACTIONS = [
 	"move_right",
 	"interact",
 	"inventory",
+	"crafting",
 	"camera_rotate",
 	"chop",
 	"save_game",
@@ -55,6 +56,7 @@ func _setup_input():
 	_add_action_key("move_right", KEY_D)
 	_add_action_key("interact", KEY_E)
 	_add_action_key("inventory", KEY_I)
+	_add_action_key("crafting", KEY_C)
 	_add_action_mouse("camera_rotate", MOUSE_BUTTON_RIGHT)
 	_add_action_mouse("chop", MOUSE_BUTTON_LEFT)
 	_add_action_key("chop", KEY_F)

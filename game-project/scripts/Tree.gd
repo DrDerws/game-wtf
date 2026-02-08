@@ -18,6 +18,7 @@ var is_felled := false
 
 func _ready():
 	add_to_group("trees")
+	add_to_group("place_blocker")
 	if collider != null:
 		collider.set_meta("tree", self)
 	_setup_audio()
@@ -50,6 +51,9 @@ func _play_hit_feedback():
 	if particles != null:
 		particles.restart()
 		particles.emitting = true
+	var marker = get_tree().get_first_node_in_group("hit_marker")
+	if marker != null:
+		marker.show_marker()
 	_play_hit_sound()
 
 func _play_hit_sound():

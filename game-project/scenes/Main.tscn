@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=3]
+[gd_scene load_steps=29 format=3]
 
 [ext_resource type="Script" path="res://scripts/Main.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/Player.tscn" id="2"]
@@ -11,6 +11,12 @@
 [ext_resource type="Script" path="res://scripts/Items.gd" id="9"]
 [ext_resource type="Script" path="res://scripts/SaveManager.gd" id="10"]
 [ext_resource type="PackedScene" path="res://ui/Hotbar.tscn" id="11"]
+[ext_resource type="PackedScene" path="res://ui/CraftingUI.tscn" id="12"]
+[ext_resource type="Script" path="res://scripts/InteractPrompt.gd" id="13"]
+[ext_resource type="Script" path="res://scripts/HitMarker.gd" id="14"]
+[ext_resource type="Script" path="res://scripts/SurvivalManager.gd" id="15"]
+[ext_resource type="PackedScene" path="res://ui/SurvivalHUD.tscn" id="16"]
+[ext_resource type="PackedScene" path="res://ui/ObjectiveTracker.tscn" id="17"]
 
 [sub_resource type="ProceduralSkyMaterial" id="1"]
 sky_top_color = Color(0.4, 0.5, 0.65, 1)
@@ -91,6 +97,7 @@ light_energy = 1.1
 rotation = Vector3(-0.9, 0.8, 0)
 
 [node name="Ground" type="StaticBody3D" parent="."]
+groups=["ground"]
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Ground"]
 mesh = SubResource("4")
@@ -107,6 +114,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, -0.2, -10)
 
 [node name="Mound1" type="StaticBody3D" parent="."]
 transform = Transform3D(1.6, 0, 0, 0, 0.6, 0, 0, 0, 1.4, 18, -1.5, 8)
+groups=["ground"]
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Mound1"]
 mesh = SubResource("9")
@@ -117,6 +125,7 @@ shape = SubResource("10")
 
 [node name="Mound2" type="StaticBody3D" parent="."]
 transform = Transform3D(1.2, 0, 0, 0, 0.5, 0, 0, 0, 1.1, -20, -1.2, 16)
+groups=["ground"]
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Mound2"]
 mesh = SubResource("9")
@@ -185,6 +194,9 @@ transform = Transform3D(0.7, 0, 0, 0, 0.4, 0, 0, 0, 0.7, 10, 0.3, -14)
 
 [node name="Pickups" type="Node3D" parent="."]
 
+[node name="Placeables" type="Node3D" parent="."]
+groups=["placeables"]
+
 [node name="StickPickup" parent="Pickups" instance=ExtResource("5")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0.2, 2)
 item_id = "stick"
@@ -207,11 +219,20 @@ script = ExtResource("9")
 [node name="SaveManager" type="Node" parent="."]
 script = ExtResource("10")
 
+[node name="SurvivalManager" type="Node" parent="."]
+script = ExtResource("15")
+
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
 [node name="InventoryUI" parent="CanvasLayer" instance=ExtResource("8")]
 
 [node name="Hotbar" parent="CanvasLayer" instance=ExtResource("11")]
+
+[node name="CraftingUI" parent="CanvasLayer" instance=ExtResource("12")]
+
+[node name="SurvivalHUD" parent="CanvasLayer" instance=ExtResource("16")]
+
+[node name="ObjectiveTracker" parent="CanvasLayer" instance=ExtResource("17")]
 
 [node name="ToastLabel" type="Label" parent="CanvasLayer"]
 anchors_preset = 8
@@ -223,3 +244,25 @@ text = ""
 horizontal_alignment = 1
 vertical_alignment = 1
 script = ExtResource("7")
+
+[node name="InteractPrompt" type="Label" parent="CanvasLayer"]
+anchors_preset = 8
+anchor_left = 0.38
+anchor_top = 0.78
+anchor_right = 0.62
+anchor_bottom = 0.83
+text = ""
+horizontal_alignment = 1
+vertical_alignment = 1
+script = ExtResource("13")
+
+[node name="HitMarker" type="Label" parent="CanvasLayer"]
+anchors_preset = 8
+anchor_left = 0.49
+anchor_top = 0.47
+anchor_right = 0.51
+anchor_bottom = 0.53
+text = "+"
+horizontal_alignment = 1
+vertical_alignment = 1
+script = ExtResource("14")
