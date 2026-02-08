@@ -109,7 +109,7 @@ func _input(event: InputEvent) -> void:
 	for index in range(6):
 		if event.is_action_pressed("hotbar_%d" % (index + 1)):
 			inventory.set_active_hotbar(index)
-			var active_item := inventory.get_active_item()
+			var active_item: String = inventory.get_active_item()
 			if active_item != "" and inventory.get_count(active_item) <= 0:
 				hud.show_message("No %s in inventory" % inventory.get_item_label(active_item))
 				player.set_held_item("")
@@ -148,7 +148,7 @@ func _update_time(delta: float) -> void:
 
 func get_ambient_temperature() -> float:
 	var day_factor: float = 0.5 - 0.5 * cos((time_of_day / 24.0) * TAU)
-	var base_temp := lerp(-32.0, -10.0, day_factor)
+	var base_temp: float = lerp(-32.0, -10.0, day_factor)
 	if weather_state == "snow":
 		base_temp -= 4.0
 	if weather_state == "windy":
@@ -230,7 +230,7 @@ func _interact() -> void:
 		return
 	var interactable: Node3D = player.get_interactable()
 	if interactable and interactable.has_method("harvest"):
-		var active_item := inventory.get_active_item()
+		var active_item: String = inventory.get_active_item()
 		if interactable.has_method("can_harvest"):
 			if active_item != "" and inventory.get_count(active_item) <= 0:
 				active_item = ""
@@ -261,7 +261,7 @@ func _on_player_attack() -> void:
 		return
 	if hud.is_modal_open():
 		return
-	var active_item := inventory.get_active_item()
+	var active_item: String = inventory.get_active_item()
 	if active_item != "Axe" and active_item != "StoneAxe":
 		hud.show_message("Equip axe to chop")
 		return
@@ -272,7 +272,7 @@ func _on_player_attack() -> void:
 	if tree == null:
 		return
 	player.play_swing()
-	var chopped := tree.chop(1)
+	var chopped: bool = tree.chop(1)
 	if chopped:
 		_spawn_tree_drops(tree.global_position)
 
@@ -283,7 +283,7 @@ func _get_nearest_tree() -> Node:
 		if tree is Node3D and tree.has_method("can_chop"):
 			if not tree.can_chop():
 				continue
-			var dist := tree.global_position.distance_to(player.global_position)
+			var dist: float = tree.global_position.distance_to(player.global_position)
 			if dist < nearest_dist:
 				nearest_dist = dist
 				nearest = tree
@@ -390,11 +390,11 @@ func craft_recipe(recipe_id: String, quantity: int) -> void:
 	var recipe := _get_recipe_by_id(recipe_id)
 	if recipe.is_empty():
 		return
-	var max_qty := _get_max_craftable(recipe)
+	var max_qty: int = _get_max_craftable(recipe)
 	if max_qty <= 0:
 		hud.show_message("Missing ingredients")
 		return
-	var craft_qty := clamp(quantity, 1, max_qty)
+	var craft_qty: int = int(clamp(quantity, 1, max_qty))
 	var requirements: Dictionary = recipe.get("requirements", {})
 	for key in requirements.keys():
 		inventory.remove_item(str(key), int(requirements[key]) * craft_qty)
@@ -411,12 +411,12 @@ func _get_recipe_by_id(recipe_id: String) -> Dictionary:
 
 func _get_max_craftable(recipe: Dictionary) -> int:
 	var requirements: Dictionary = recipe.get("requirements", {})
-	var max_qty := INF
+	var max_qty: float = INF
 	for key in requirements.keys():
 		var need := int(requirements[key])
 		if need <= 0:
 			continue
-		var available := inventory.get_count(str(key))
+		var available: int = inventory.get_count(str(key))
 		max_qty = min(max_qty, int(floor(float(available) / float(need))))
 	if max_qty == INF:
 		return 0
@@ -457,7 +457,9 @@ func _update_campfire_preview() -> void:
 	var origin := player.global_transform.origin + Vector3(0, 1.2, 0)
 	var direction := -player.global_transform.basis.z
 	var to := origin + direction * 8.0
-	var result := space_state.intersect_ray(origin, to, [player])
+	var query := PhysicsRayQueryParameters3D.create(origin, to)
+	query.exclude = [player]
+	var result := space_state.intersect_ray(query)
 	if result:
 		campfire_preview.global_position = result.position
 
@@ -507,7 +509,7 @@ func _use_active_item() -> void:
 		return
 	if hud.is_modal_open():
 		return
-	var active_item := inventory.get_active_item()
+	var active_item: String = inventory.get_active_item()
 	if active_item == "":
 		hud.show_message("No item selected")
 		return
@@ -563,7 +565,7 @@ func _consume_tinder() -> void:
 func _try_add_campfire_tinder() -> bool:
 	if campfire_instance == null:
 		return false
-	var active_item := inventory.get_active_item()
+	var active_item: String = inventory.get_active_item()
 	if active_item == "Tinder" or active_item == "Kindling":
 		if inventory.remove_item(active_item, 1):
 			campfire_instance.tinder += 1
@@ -595,7 +597,7 @@ func _check_game_state() -> void:
 
 func _on_inventory_changed() -> void:
 	_update_hud()
-	var active_item := inventory.get_active_item()
+	var active_item: String = inventory.get_active_item()
 	if active_item != "" and inventory.get_count(active_item) <= 0:
 		player.set_held_item("")
 	else:
@@ -719,7 +721,7 @@ func _get_interact_prompt() -> String:
 	if tree != null:
 		return "LMB to chop"
 	if campfire_instance and campfire_instance.global_position.distance_to(player.global_position) <= 3.0:
-		var active_item := inventory.get_active_item()
+		var active_item: String = inventory.get_active_item()
 		if active_item == "Tinder" or active_item == "Kindling":
 			return "Press E to add tinder"
 		return "Press E to add fuel"
