@@ -105,10 +105,31 @@ func _set_held_item(item_name: String) -> void:
 		var axe_mesh := BoxMesh.new()
 		axe_mesh.size = Vector3(0.15, 0.6, 0.08)
 		mesh = axe_mesh
+	elif item_name == "StoneAxe":
+		var stone_axe := BoxMesh.new()
+		stone_axe.size = Vector3(0.18, 0.55, 0.1)
+		mesh = stone_axe
+	elif item_name == "SimpleKnife":
+		var knife_mesh := BoxMesh.new()
+		knife_mesh.size = Vector3(0.25, 0.05, 0.1)
+		mesh = knife_mesh
 	elif item_name == "FlintSteel":
 		var flint_mesh := BoxMesh.new()
 		flint_mesh.size = Vector3(0.2, 0.12, 0.08)
 		mesh = flint_mesh
+	elif item_name == "Berries":
+		var berry_mesh := SphereMesh.new()
+		berry_mesh.radius = 0.1
+		mesh = berry_mesh
+	elif item_name == "Mushroom":
+		var mush_mesh := CapsuleMesh.new()
+		mush_mesh.radius = 0.08
+		mush_mesh.height = 0.2
+		mesh = mush_mesh
+	elif item_name == "BerryMash":
+		var mash_mesh := SphereMesh.new()
+		mash_mesh.radius = 0.12
+		mesh = mash_mesh
 	elif item_name == "Torch":
 		var torch_mesh := CylinderMesh.new()
 		torch_mesh.top_radius = 0.05

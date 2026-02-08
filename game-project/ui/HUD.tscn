@@ -44,13 +44,33 @@
 	anchor_top = 1.0
 	anchor_bottom = 1.0
 	offset_left = 16.0
-	offset_top = -220.0
+	offset_top = -250.0
 
 [node name="HealthLabel" type="Label" parent="Root/BottomLeft"]
 	text = "Health: 100"
 
 [node name="TempStatus" type="Label" parent="Root/BottomLeft"]
 	text = "Body Temp: 36 (Warm)"
+
+[node name="NeedsIcons" type="HBoxContainer" parent="Root/BottomLeft"]
+	custom_minimum_size = Vector2(240, 24)
+	alignment = 0
+	spacing = 6
+
+[node name="HealthIcon" type="TextureRect" parent="Root/BottomLeft/NeedsIcons"]
+	custom_minimum_size = Vector2(20, 20)
+
+[node name="WarmthIcon" type="TextureRect" parent="Root/BottomLeft/NeedsIcons"]
+	custom_minimum_size = Vector2(20, 20)
+
+[node name="HungerIcon" type="TextureRect" parent="Root/BottomLeft/NeedsIcons"]
+	custom_minimum_size = Vector2(20, 20)
+
+[node name="ThirstIcon" type="TextureRect" parent="Root/BottomLeft/NeedsIcons"]
+	custom_minimum_size = Vector2(20, 20)
+
+[node name="FatigueIcon" type="TextureRect" parent="Root/BottomLeft/NeedsIcons"]
+	custom_minimum_size = Vector2(20, 20)
 
 [node name="NeedsBars" type="VBoxContainer" parent="Root/BottomLeft"]
 
@@ -71,6 +91,17 @@
 
 [node name="NeedsLabel" type="Label" parent="Root/BottomLeft"]
 	text = "Hunger: 100  Thirst: 100  Fatigue: 0"
+
+[node name="CampfireBox" type="VBoxContainer" parent="Root/BottomLeft"]
+	visible = false
+
+[node name="CampfireLabel" type="Label" parent="Root/BottomLeft/CampfireBox"]
+	text = "Campfire Fuel"
+
+[node name="FuelBar" type="ProgressBar" parent="Root/BottomLeft/CampfireBox"]
+	min_value = 0.0
+	max_value = 100.0
+	value = 0.0
 
 [node name="BottomRight" type="VBoxContainer" parent="Root"]
 	anchor_left = 1.0
@@ -114,19 +145,17 @@
 	visible = true
 
 [node name="HintsLabel" type="Label" parent="Root/Hints"]
-	text = "WASD Move  |  RMB Rotate  |  Mouse Wheel Zoom\nE Gather/Use  |  LMB Chop  |  1-6 Hotbar  |  I Inventory  |  C Craft\nF5 Save  |  F9 Load  |  H Toggle Hints  |  F3 Debug"
+	text = "WASD Move  |  RMB Rotate  |  Mouse Wheel Zoom\nE Gather/Use  |  LMB Chop  |  F Use Item  |  Q/R Rotate Campfire  |  1-6 Hotbar\nI Inventory  |  C Craft  |  F5 Save  |  F9 Load  |  H Toggle Hints  |  F3 Debug"
 	autowrap_mode = 3
 
 [node name="InventoryPanel" type="PanelContainer" parent="Root"]
 	visible = false
-	anchor_left = 0.5
-	anchor_top = 0.5
-	anchor_right = 0.5
-	anchor_bottom = 0.5
-	offset_left = -220.0
-	offset_top = -220.0
-	offset_right = 220.0
-	offset_bottom = 220.0
+	anchor_top = 0.0
+	anchor_bottom = 0.0
+	offset_left = 16.0
+	offset_top = 120.0
+	offset_right = 420.0
+	offset_bottom = 520.0
 
 [node name="VBox" type="VBoxContainer" parent="Root/InventoryPanel"]
 	margin_left = 12.0
@@ -143,14 +172,12 @@
 
 [node name="CraftingPanel" type="PanelContainer" parent="Root"]
 	visible = false
-	anchor_left = 0.5
-	anchor_top = 0.5
-	anchor_right = 0.5
-	anchor_bottom = 0.5
-	offset_left = -220.0
-	offset_top = -220.0
-	offset_right = 220.0
-	offset_bottom = 220.0
+	anchor_top = 0.0
+	anchor_bottom = 0.0
+	offset_left = 16.0
+	offset_top = 120.0
+	offset_right = 440.0
+	offset_bottom = 560.0
 
 [node name="VBox" type="VBoxContainer" parent="Root/CraftingPanel"]
 	margin_left = 12.0
@@ -161,22 +188,48 @@
 [node name="Label" type="Label" parent="Root/CraftingPanel/VBox"]
 	text = "Crafting"
 
-[node name="RecipeList" type="Label" parent="Root/CraftingPanel/VBox"]
-	text = "Campfire Kit: 5 Stick, 3 Tinder"
+[node name="CraftingControls" type="HBoxContainer" parent="Root/CraftingPanel/VBox"]
 
-[node name="CraftKit" type="Button" parent="Root/CraftingPanel/VBox"]
-	text = "Craft Campfire Kit"
+[node name="QtyLabel" type="Label" parent="Root/CraftingPanel/VBox/CraftingControls"]
+	text = "Qty:"
 
-[node name="PlaceFire" type="Button" parent="Root/CraftingPanel/VBox"]
-	text = "Place Campfire"
+[node name="CraftQuantity" type="OptionButton" parent="Root/CraftingPanel/VBox/CraftingControls"]
+	size_flags_horizontal = 3
 
-[node name="LightFire" type="Button" parent="Root/CraftingPanel/VBox"]
-	text = "Light Fire (Flint + Tinder)"
+[node name="CraftingTabs" type="TabContainer" parent="Root/CraftingPanel/VBox"]
+	custom_minimum_size = Vector2(360, 240)
 
-[node name="AddFuel" type="Button" parent="Root/CraftingPanel/VBox"]
-	text = "Add Fuel (1 Stick)"
+[node name="Tools" type="ScrollContainer" parent="Root/CraftingPanel/VBox/CraftingTabs"]
+	name = "Tools"
 
-[connection signal="pressed" from="Root/CraftingPanel/VBox/CraftKit" to="." method="_on_craft_kit_pressed"]
-[connection signal="pressed" from="Root/CraftingPanel/VBox/PlaceFire" to="." method="_on_place_fire_pressed"]
-[connection signal="pressed" from="Root/CraftingPanel/VBox/LightFire" to="." method="_on_light_fire_pressed"]
-[connection signal="pressed" from="Root/CraftingPanel/VBox/AddFuel" to="." method="_on_add_fuel_pressed"]
+[node name="ToolsList" type="VBoxContainer" parent="Root/CraftingPanel/VBox/CraftingTabs/Tools"]
+	size_flags_horizontal = 3
+	size_flags_vertical = 3
+
+[node name="Fire" type="ScrollContainer" parent="Root/CraftingPanel/VBox/CraftingTabs"]
+	name = "Fire"
+
+[node name="FireList" type="VBoxContainer" parent="Root/CraftingPanel/VBox/CraftingTabs/Fire"]
+	size_flags_horizontal = 3
+	size_flags_vertical = 3
+
+[node name="Food" type="ScrollContainer" parent="Root/CraftingPanel/VBox/CraftingTabs"]
+	name = "Food"
+
+[node name="FoodList" type="VBoxContainer" parent="Root/CraftingPanel/VBox/CraftingTabs/Food"]
+	size_flags_horizontal = 3
+	size_flags_vertical = 3
+
+[node name="Materials" type="ScrollContainer" parent="Root/CraftingPanel/VBox/CraftingTabs"]
+	name = "Materials"
+
+[node name="MaterialsList" type="VBoxContainer" parent="Root/CraftingPanel/VBox/CraftingTabs/Materials"]
+	size_flags_horizontal = 3
+	size_flags_vertical = 3
+
+[node name="RecipeDetails" type="RichTextLabel" parent="Root/CraftingPanel/VBox"]
+	custom_minimum_size = Vector2(360, 90)
+	bbcode_enabled = true
+
+[node name="CraftButton" type="Button" parent="Root/CraftingPanel/VBox"]
+	text = "Craft"

@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3 uid="uid://cqd5nwd6el7tp"]
+[gd_scene load_steps=10 format=3 uid="uid://cqd5nwd6el7tp"]
 
 [ext_resource type="Script" path="res://scripts/Campfire.gd" id="1"]
 
@@ -39,6 +39,16 @@
 	scale_random = 0.6
 	color = Color(0.35, 0.35, 0.35, 0.6)
 
+[sub_resource type="ParticleProcessMaterial" id="8"]
+	emission_shape = 1
+	emission_box_extents = Vector3(0.15, 0.05, 0.15)
+	gravity = Vector3(0, 1.6, 0)
+	initial_velocity = 2.0
+	angle = 25.0
+	scale = 0.12
+	scale_random = 0.5
+	color = Color(1, 0.7, 0.3, 1.0)
+
 [sub_resource type="QuadMesh" id="7"]
 	size = Vector2(0.15, 0.15)
 
@@ -70,8 +80,21 @@
 	position = Vector3(0, 0.6, 0)
 	visibility_aabb = AABB(-2, -2, -2, 4, 4, 4)
 
+[node name="SparksParticles" type="GPUParticles3D" parent="."]
+	amount = 40
+	lifetime = 0.5
+	one_shot = true
+	process_material = SubResource("8")
+	draw_pass_1 = SubResource("7")
+	position = Vector3(0, 0.35, 0)
+	visibility_aabb = AABB(-1, -1, -1, 2, 2, 2)
+
 [node name="FireLight" type="OmniLight3D" parent="."]
 	light_color = Color(1, 0.6, 0.3, 1.0)
 	light_energy = 2.8
 	omni_range = 9.0
 	position = Vector3(0, 0.8, 0)
+
+[node name="IgnitePlayer" type="AudioStreamPlayer3D" parent="."]
+	volume_db = -8.0
+	position = Vector3(0, 0.2, 0)
