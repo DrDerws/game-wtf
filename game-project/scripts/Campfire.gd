@@ -11,11 +11,14 @@ signal fuel_changed
 var fuel: float = 0.0
 var is_lit: bool = false
 var flicker_timer: float = 0.0
+var tinder: int = 0
 
 @onready var ember: MeshInstance3D = $Ember
 @onready var flame_particles: GPUParticles3D = $FlameParticles
 @onready var smoke_particles: GPUParticles3D = $SmokeParticles
 @onready var light: OmniLight3D = $FireLight
+@onready var sparks_particles: GPUParticles3D = $SparksParticles
+@onready var ignite_player: AudioStreamPlayer3D = $IgnitePlayer
 
 func _ready() -> void:
 	_update_visuals()
@@ -31,6 +34,7 @@ func light_fire() -> void:
 		return
 	is_lit = true
 	_update_visuals()
+	_play_ignite_effects()
 	fire_lit.emit()
 
 func _process(delta: float) -> void:
@@ -52,6 +56,27 @@ func _update_visuals() -> void:
 	flame_particles.emitting = is_lit
 	smoke_particles.emitting = is_lit
 	light.visible = is_lit
+	sparks_particles.emitting = false
 
 func refresh() -> void:
 	_update_visuals()
+
+func _play_ignite_effects() -> void:
+	if sparks_particles:
+		sparks_particles.emitting = true
+		sparks_particles.restart()
+	if ignite_player:
+		if ignite_player.stream == null:
+			var generator := AudioStreamGenerator.new()
+			generator.mix_rate = 44100
+			generator.buffer_length = 0.3
+			ignite_player.stream = generator
+		ignite_player.play()
+		var playback := ignite_player.get_stream_playback()
+		if playback:
+			var frames := int(44100 * 0.18)
+			for i in range(frames):
+				var t := float(i) / float(frames)
+				var amp := lerp(0.5, 0.0, t)
+				var sample := (randf() * 2.0 - 1.0) * amp
+				playback.push_frame(Vector2(sample, sample))

@@ -1,0 +1,46 @@
+{
+  "recipes": [
+    {
+      "id": "campfire_kit",
+      "name": "Campfire Kit",
+      "category": "Fire",
+      "requirements": {"Stick": 3, "Tinder": 2},
+      "outputs": {"CampfireKit": 1}
+    },
+    {
+      "id": "kindling",
+      "name": "Kindling",
+      "category": "Fire",
+      "requirements": {"Stick": 2},
+      "outputs": {"Kindling": 1}
+    },
+    {
+      "id": "stone_axe",
+      "name": "Stone Axe",
+      "category": "Tools",
+      "requirements": {"Stick": 1, "Stone": 2},
+      "outputs": {"StoneAxe": 1}
+    },
+    {
+      "id": "simple_knife",
+      "name": "Simple Knife",
+      "category": "Tools",
+      "requirements": {"Stick": 1, "Stone": 1},
+      "outputs": {"SimpleKnife": 1}
+    },
+    {
+      "id": "berry_mash",
+      "name": "Berry Mash",
+      "category": "Food",
+      "requirements": {"Berries": 3},
+      "outputs": {"BerryMash": 1}
+    },
+    {
+      "id": "water_flask",
+      "name": "Water Flask",
+      "category": "Materials",
+      "requirements": {"Fiber": 3, "Stone": 1},
+      "outputs": {"WaterFlask": 1}
+    }
+  ]
+}

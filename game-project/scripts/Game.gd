@@ -41,10 +41,12 @@ var pickup_scene: PackedScene = preload("res://scenes/Pickup.tscn")
 var campfire_instance: Campfire = null
 var campfire_preview: Node3D = null
 var placing_campfire: bool = false
+var campfire_preview_rot: float = 0.0
 
 var world_seed: int = 0
 var rng := RandomNumberGenerator.new()
 var noise := FastNoiseLite.new()
+var recipes: Array = []
 
 var resource_states := {
 	"trees": {},
@@ -70,8 +72,10 @@ func _ready() -> void:
 	inventory.inventory_changed.connect(_on_inventory_changed)
 	player.attack_pressed.connect(_on_player_attack)
 	_init_inventory()
+	_load_recipes()
 	_initialize_world_seed()
 	_generate_world()
+	hud.set_recipes(recipes)
 	_update_hud()
 
 func _process(delta: float) -> void:
@@ -88,6 +92,8 @@ func _process(delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("interact"):
 		_interact()
+	if event.is_action_pressed("use_item"):
+		_use_active_item()
 	if event.is_action_pressed("toggle_inventory"):
 		hud.toggle_inventory()
 	if event.is_action_pressed("toggle_crafting"):
@@ -103,16 +109,37 @@ func _input(event: InputEvent) -> void:
 	for index in range(6):
 		if event.is_action_pressed("hotbar_%d" % (index + 1)):
 			inventory.set_active_hotbar(index)
-			player.set_held_item(inventory.get_active_item())
+			var active_item := inventory.get_active_item()
+			if active_item != "" and inventory.get_count(active_item) <= 0:
+				hud.show_message("No %s in inventory" % inventory.get_item_label(active_item))
+				player.set_held_item("")
+			else:
+				player.set_held_item(active_item)
+	if placing_campfire:
+		if event.is_action_pressed("rotate_left"):
+			_rotate_campfire_preview(-15.0)
+		if event.is_action_pressed("rotate_right"):
+			_rotate_campfire_preview(15.0)
 
 func _initialize_world_seed() -> void:
 	world_seed = int(Time.get_unix_time_from_system())
 
 func _init_inventory() -> void:
-	inventory.add_item("Axe", 1)
 	inventory.add_item("FlintSteel", 1)
 	inventory.set_active_hotbar(0)
 	player.set_held_item(inventory.get_active_item())
+
+func _load_recipes() -> void:
+	var file := FileAccess.open("res://data/recipes.json", FileAccess.READ)
+	if file == null:
+		recipes = []
+		return
+	var data: Variant = JSON.parse_string(file.get_as_text())
+	if typeof(data) != TYPE_DICTIONARY:
+		recipes = []
+		return
+	var recipe_data: Dictionary = data
+	recipes = recipe_data.get("recipes", [])
 
 func _update_time(delta: float) -> void:
 	time_of_day += (24.0 / day_length_seconds) * delta
@@ -137,6 +164,10 @@ func _update_weather(delta: float) -> void:
 	_apply_weather_visuals()
 
 func _apply_weather_visuals() -> void:
+	world_environment.environment.adjustment_enabled = true
+	world_environment.environment.adjustment_brightness = 1.05
+	world_environment.environment.adjustment_contrast = 1.05
+	world_environment.environment.adjustment_saturation = 1.1
 	if weather_state == "snow":
 		wind_factor = 0.25
 		snow_particles.emitting = true
@@ -160,7 +191,7 @@ func _update_needs(delta: float) -> void:
 	var ambient := get_ambient_temperature()
 	var temp_delta := (ambient - body_temp) * 0.02
 	if _is_near_fire():
-		temp_delta += 0.14
+		temp_delta += campfire_instance.heat_strength * 0.01
 	else:
 		temp_delta -= wind_factor * 0.05
 	body_temp = clamp(body_temp + temp_delta * delta * 60.0, -10.0, 40.0)
@@ -199,16 +230,30 @@ func _interact() -> void:
 		return
 	var interactable: Node3D = player.get_interactable()
 	if interactable and interactable.has_method("harvest"):
+		var active_item := inventory.get_active_item()
+		if interactable.has_method("can_harvest"):
+			if active_item != "" and inventory.get_count(active_item) <= 0:
+				active_item = ""
+			if not interactable.can_harvest(active_item):
+				hud.show_message("Need the right tool")
+				return
 		var harvested: Dictionary = interactable.harvest()
 		if harvested.is_empty():
 			return
-		resource_states["resources"][str(harvested.id)] = true
-		inventory.add_item(harvested.item_type, harvested.amount)
+		var resource_id := str(harvested.get("id", -1))
+		if resource_id != "-1":
+			resource_states["resources"][resource_id] = true
+		var item_type := str(harvested.get("item_type", ""))
+		var amount := int(harvested.get("amount", 0))
+		if item_type != "" and amount > 0:
+			inventory.add_item(item_type, amount)
+			hud.show_message("+%d %s" % [amount, inventory.get_item_label(item_type)])
 		return
 	if campfire_instance and campfire_instance.global_position.distance_to(player.global_position) <= 3.0:
-		if inventory.remove_item("Stick", 1):
-			campfire_instance.add_fuel(30.0)
-			hud.show_message("Added fuel")
+		if _try_add_campfire_tinder():
+			return
+		if _try_add_campfire_fuel():
+			return
 		return
 
 func _on_player_attack() -> void:
@@ -216,8 +261,12 @@ func _on_player_attack() -> void:
 		return
 	if hud.is_modal_open():
 		return
-	if inventory.get_active_item() != "Axe":
+	var active_item := inventory.get_active_item()
+	if active_item != "Axe" and active_item != "StoneAxe":
 		hud.show_message("Equip axe to chop")
+		return
+	if inventory.get_count(active_item) <= 0:
+		hud.show_message("You don't have that tool")
 		return
 	var tree := _get_nearest_tree()
 	if tree == null:
@@ -253,7 +302,7 @@ func _update_objectives(delta: float) -> void:
 		return
 	if current.id == "chop" and chopped_tree_count >= current.target:
 		advance_objective()
-	if current.id == "tinder" and inventory.get_count("Tinder") >= current.target:
+	if current.id == "tinder" and (inventory.get_count("Tinder") + inventory.get_count("Kindling")) >= current.target:
 		advance_objective()
 	if current.id == "craft" and inventory.get_count("CampfireKit") >= current.target:
 		advance_objective()
@@ -301,6 +350,9 @@ func _update_hud() -> void:
 		"prompt": _get_interact_prompt(),
 		"inventory": inventory.items,
 		"campfire": campfire_instance,
+		"campfire_fuel": campfire_instance.fuel if campfire_instance else 0.0,
+		"campfire_max_fuel": campfire_instance.max_fuel if campfire_instance else 0.0,
+		"campfire_tinder": campfire_instance.tinder if campfire_instance else 0,
 		"hotbar": inventory.hotbar,
 		"active_hotbar": inventory.active_hotbar_index,
 		"weather": weather_state,
@@ -313,6 +365,8 @@ func _update_hud() -> void:
 	})
 
 func _get_status_effect() -> String:
+	if _is_near_fire():
+		return "Warming"
 	if body_temp <= 0.0:
 		return "Freezing"
 	if body_temp < 20.0:
@@ -332,6 +386,42 @@ func craft_campfire_kit() -> void:
 		inventory.add_item("CampfireKit", 1)
 		hud.show_message("Crafted campfire kit")
 
+func craft_recipe(recipe_id: String, quantity: int) -> void:
+	var recipe := _get_recipe_by_id(recipe_id)
+	if recipe.is_empty():
+		return
+	var max_qty := _get_max_craftable(recipe)
+	if max_qty <= 0:
+		hud.show_message("Missing ingredients")
+		return
+	var craft_qty := clamp(quantity, 1, max_qty)
+	var requirements: Dictionary = recipe.get("requirements", {})
+	for key in requirements.keys():
+		inventory.remove_item(str(key), int(requirements[key]) * craft_qty)
+	var outputs: Dictionary = recipe.get("outputs", {})
+	for key in outputs.keys():
+		inventory.add_item(str(key), int(outputs[key]) * craft_qty)
+	hud.show_message("Crafted %s x%d" % [str(recipe.get("name", recipe_id)), craft_qty])
+
+func _get_recipe_by_id(recipe_id: String) -> Dictionary:
+	for recipe in recipes:
+		if typeof(recipe) == TYPE_DICTIONARY and recipe.get("id", "") == recipe_id:
+			return recipe
+	return {}
+
+func _get_max_craftable(recipe: Dictionary) -> int:
+	var requirements: Dictionary = recipe.get("requirements", {})
+	var max_qty := INF
+	for key in requirements.keys():
+		var need := int(requirements[key])
+		if need <= 0:
+			continue
+		var available := inventory.get_count(str(key))
+		max_qty = min(max_qty, int(floor(float(available) / float(need))))
+	if max_qty == INF:
+		return 0
+	return int(max_qty)
+
 func place_campfire() -> void:
 	if inventory.get_count("CampfireKit") <= 0:
 		return
@@ -347,6 +437,7 @@ func _create_campfire_preview() -> void:
 	campfire_preview = campfire_scene.instantiate() as Node3D
 	campfire_preview.name = "CampfirePreview"
 	campfire_preview.scale = Vector3.ONE * 1.05
+	campfire_preview.rotation.y = campfire_preview_rot
 	campfire_container.add_child(campfire_preview)
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(1, 0.7, 0.4, 0.4)
@@ -378,11 +469,17 @@ func _confirm_campfire_placement() -> void:
 	campfire_instance = campfire_scene.instantiate() as Campfire
 	campfire_container.add_child(campfire_instance)
 	campfire_instance.global_position = campfire_preview.global_position
+	campfire_instance.rotation = campfire_preview.rotation
 	campfire_instance.add_fuel(30.0)
 	campfire_instance.fire_lit.connect(_on_fire_lit)
 	campfire_instance.fuel_changed.connect(_on_fire_fuel_changed)
 	campfire_preview.queue_free()
 	campfire_preview = null
+
+func _rotate_campfire_preview(amount: float) -> void:
+	campfire_preview_rot += deg_to_rad(amount)
+	if campfire_preview:
+		campfire_preview.rotation.y = campfire_preview_rot
 
 func light_fire() -> void:
 	if campfire_instance == null:
@@ -390,20 +487,103 @@ func light_fire() -> void:
 	if inventory.get_count("FlintSteel") <= 0:
 		hud.show_message("Need flint & steel")
 		return
-	if inventory.get_count("Tinder") <= 0:
+	if not _has_tinder_available():
 		hud.show_message("Need tinder")
 		return
 	if campfire_instance.fuel <= 0.0:
 		hud.show_message("Need fuel")
 		return
-	inventory.remove_item("Tinder", 1)
+	_consume_tinder()
 	campfire_instance.light_fire()
 
 func add_fuel() -> void:
 	if campfire_instance == null:
 		return
+	if _try_add_campfire_fuel():
+		return
+
+func _use_active_item() -> void:
+	if not player.input_enabled:
+		return
+	if hud.is_modal_open():
+		return
+	var active_item := inventory.get_active_item()
+	if active_item == "":
+		hud.show_message("No item selected")
+		return
+	if inventory.get_count(active_item) <= 0:
+		hud.show_message("You don't have that item")
+		return
+	if inventory.is_consumable(active_item):
+		_consume_item(active_item)
+		return
+	if active_item == "FlintSteel":
+		light_fire()
+		return
+	if active_item == "CampfireKit":
+		place_campfire()
+		return
+	if active_item == "WaterFlask":
+		hud.show_message("Flask is empty")
+		return
+	hud.show_message("Can't use that item")
+
+func _consume_item(item_name: String) -> void:
+	if item_name == "Berries":
+		hunger = clamp(hunger + 8.0, 0.0, 100.0)
+		inventory.remove_item("Berries", 1)
+		hud.show_message("Ate berries")
+		return
+	if item_name == "Mushroom":
+		hunger = clamp(hunger + 6.0, 0.0, 100.0)
+		inventory.remove_item("Mushroom", 1)
+		hud.show_message("Ate mushroom")
+		return
+	if item_name == "BerryMash":
+		hunger = clamp(hunger + 14.0, 0.0, 100.0)
+		inventory.remove_item("BerryMash", 1)
+		hud.show_message("Ate berry mash")
+		return
+
+func _has_tinder_available() -> bool:
+	if campfire_instance and campfire_instance.tinder > 0:
+		return true
+	return inventory.get_count("Tinder") > 0 or inventory.get_count("Kindling") > 0
+
+func _consume_tinder() -> void:
+	if campfire_instance and campfire_instance.tinder > 0:
+		campfire_instance.tinder -= 1
+		campfire_instance.refresh()
+		return
+	if inventory.get_count("Kindling") > 0:
+		inventory.remove_item("Kindling", 1)
+		return
+	inventory.remove_item("Tinder", 1)
+
+func _try_add_campfire_tinder() -> bool:
+	if campfire_instance == null:
+		return false
+	var active_item := inventory.get_active_item()
+	if active_item == "Tinder" or active_item == "Kindling":
+		if inventory.remove_item(active_item, 1):
+			campfire_instance.tinder += 1
+			campfire_instance.refresh()
+			hud.show_message("Added tinder")
+			return true
+	return false
+
+func _try_add_campfire_fuel() -> bool:
+	if campfire_instance == null:
+		return false
+	if inventory.remove_item("Log", 1):
+		campfire_instance.add_fuel(60.0)
+		hud.show_message("Added log")
+		return true
 	if inventory.remove_item("Stick", 1):
 		campfire_instance.add_fuel(30.0)
+		hud.show_message("Added stick")
+		return true
+	return false
 
 func _check_game_state() -> void:
 	if health <= 0.0 or body_temp <= -5.0:
@@ -415,7 +595,11 @@ func _check_game_state() -> void:
 
 func _on_inventory_changed() -> void:
 	_update_hud()
-	player.set_held_item(inventory.get_active_item())
+	var active_item := inventory.get_active_item()
+	if active_item != "" and inventory.get_count(active_item) <= 0:
+		player.set_held_item("")
+	else:
+		player.set_held_item(active_item)
 
 func _on_fire_lit() -> void:
 	hud.show_message("Fire lit")
@@ -468,6 +652,7 @@ func load_game() -> void:
 	var data_dict: Dictionary = data
 	world_seed = int(data_dict.get("seed", world_seed))
 	resource_states = data_dict.get("resource_states", resource_states)
+	_ensure_resource_state_keys()
 	var saved_next_id := int(data_dict.get("next_resource_id", next_resource_id))
 	next_resource_id = 0
 	_generate_world()
@@ -498,8 +683,10 @@ func _get_campfire_state() -> Dictionary:
 		return {}
 	return {
 		"position": _vector_to_array(campfire_instance.global_position),
+		"rotation": _vector_to_array(campfire_instance.rotation),
 		"fuel": campfire_instance.fuel,
 		"is_lit": campfire_instance.is_lit,
+		"tinder": campfire_instance.tinder,
 	}
 
 func _restore_campfire(state: Dictionary) -> void:
@@ -507,8 +694,10 @@ func _restore_campfire(state: Dictionary) -> void:
 	campfire_instance = campfire_scene.instantiate() as Campfire
 	campfire_container.add_child(campfire_instance)
 	campfire_instance.global_position = _array_to_vector(state.get("position", _vector_to_array(player.global_position)))
+	campfire_instance.rotation = _array_to_vector(state.get("rotation", [0, 0, 0]))
 	campfire_instance.fuel = state.get("fuel", 0.0)
 	campfire_instance.is_lit = state.get("is_lit", false)
+	campfire_instance.tinder = int(state.get("tinder", 0))
 	campfire_instance.fire_lit.connect(_on_fire_lit)
 	campfire_instance.fuel_changed.connect(_on_fire_fuel_changed)
 	campfire_instance.refresh()
@@ -530,6 +719,9 @@ func _get_interact_prompt() -> String:
 	if tree != null:
 		return "LMB to chop"
 	if campfire_instance and campfire_instance.global_position.distance_to(player.global_position) <= 3.0:
+		var active_item := inventory.get_active_item()
+		if active_item == "Tinder" or active_item == "Kindling":
+			return "Press E to add tinder"
 		return "Press E to add fuel"
 	return ""
 
@@ -596,6 +788,7 @@ func _clear_world() -> void:
 		campfire_preview.queue_free()
 		campfire_preview = null
 	placing_campfire = false
+	campfire_preview_rot = 0.0
 
 func _generate_terrain_mesh() -> void:
 	var st := SurfaceTool.new()
@@ -625,8 +818,10 @@ func _generate_terrain_mesh() -> void:
 			st.add_vertex(v00)
 			st.add_vertex(v11)
 			st.add_vertex(v01)
+	st.generate_normals()
 	var mesh := st.commit()
 	ground_mesh.mesh = mesh
+	ground_mesh.material_override = _make_terrain_material()
 	var shape := HeightMapShape3D.new()
 	shape.map_width = terrain_resolution + 1
 	shape.map_depth = terrain_resolution + 1
@@ -635,14 +830,52 @@ func _generate_terrain_mesh() -> void:
 	shape.cell_size_z = step
 	ground_collision.shape = shape
 
+func _make_terrain_material() -> ShaderMaterial:
+	var shader := Shader.new()
+	shader.code = """
+shader_type spatial;
+
+uniform vec3 low_color : source_color = vec3(0.2, 0.5, 0.25);
+uniform vec3 mid_color : source_color = vec3(0.35, 0.55, 0.3);
+uniform vec3 high_color : source_color = vec3(0.85, 0.88, 0.9);
+uniform vec3 rock_color : source_color = vec3(0.45, 0.45, 0.48);
+uniform float snow_height = 1.5;
+uniform float snow_blend = 1.0;
+uniform float rock_slope = 0.55;
+
+void fragment() {
+	float height = VERTEX.y;
+	float slope = 1.0 - abs(NORMAL.y);
+	float snow = smoothstep(snow_height - snow_blend, snow_height + snow_blend, height);
+	float rock = smoothstep(rock_slope, 0.95, slope);
+	vec3 base = mix(low_color, mid_color, smoothstep(-1.5, 0.8, height));
+	vec3 with_snow = mix(base, high_color, snow);
+	ALBEDO = mix(with_snow, rock_color, rock);
+	ROUGHNESS = 0.95;
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = shader
+	return mat
+
 func _spawn_environment() -> void:
 	_spawn_trees(90)
-	_spawn_rocks(40)
-	_spawn_shrubs(50)
+	_spawn_stone_nodes(22)
+	_spawn_berry_bushes(26)
+	_spawn_reed_clumps(24)
+	_spawn_mushroom_clusters(18)
+	_spawn_saplings(30)
+	_spawn_bark_nodes(20)
+	_spawn_stumps(14)
+	_spawn_fallen_branches(16)
+	_spawn_small_boulders(22)
+	_spawn_shoreline_rocks(18)
+	_spawn_driftwood(10)
+	_spawn_deadwood_piles(10)
 	_spawn_logs(12)
-	_spawn_pickups("Stick", 20)
-	_spawn_pickups("Tinder", 12)
-	_spawn_pickups("Stone", 10)
+	_spawn_pickups("Stick", 10)
+	_spawn_pickups("Tinder", 6)
+	_spawn_pickups("Stone", 6)
 	_spawn_saved_drops()
 
 func _spawn_trees(count: int) -> void:
@@ -653,7 +886,7 @@ func _spawn_trees(count: int) -> void:
 		var tree_id := _next_id()
 		if resource_states["trees"].has(str(tree_id)):
 			var state: Dictionary = resource_states["trees"][str(tree_id)]
-			if state.get("fallen", false):
+			if state.get("fallen", false) or state.get("chopped", false):
 				continue
 		var tree := tree_scene.instantiate()
 		resource_root.add_child(tree)
@@ -663,45 +896,89 @@ func _spawn_trees(count: int) -> void:
 		if resource_states["trees"].has(str(tree_id)):
 			tree.apply_state(resource_states["trees"][str(tree_id)])
 
-func _spawn_rocks(count: int) -> void:
+func _spawn_stone_nodes(count: int) -> void:
 	for i in range(count):
 		var position := _random_ground_position()
 		if position == Vector3.ZERO:
 			continue
-		var body := StaticBody3D.new()
-		var mesh_instance := MeshInstance3D.new()
-		var mesh := SphereMesh.new()
-		mesh.radius = rng.randf_range(0.4, 1.0)
-		mesh_instance.mesh = mesh
-		mesh_instance.scale = Vector3.ONE
-		body.add_child(mesh_instance)
-		var shape := SphereShape3D.new()
-		shape.radius = mesh.radius
-		var collision := CollisionShape3D.new()
-		collision.shape = shape
-		body.add_child(collision)
-		body.global_position = position
-		resource_root.add_child(body)
+		_spawn_gatherable("Stone", rng.randi_range(2, 4), position, "stone_node", false, "StoneAxe", false)
 
-func _spawn_shrubs(count: int) -> void:
+func _spawn_berry_bushes(count: int) -> void:
 	for i in range(count):
 		var position := _random_ground_position()
 		if position == Vector3.ZERO:
 			continue
-		var body := StaticBody3D.new()
-		var mesh_instance := MeshInstance3D.new()
-		var mesh := SphereMesh.new()
-		mesh.radius = rng.randf_range(0.25, 0.6)
-		mesh_instance.mesh = mesh
-		mesh_instance.scale = Vector3(1, 0.6, 1)
-		body.add_child(mesh_instance)
-		var shape := SphereShape3D.new()
-		shape.radius = mesh.radius * 0.8
-		var collision := CollisionShape3D.new()
-		collision.shape = shape
-		body.add_child(collision)
-		body.global_position = position
-		resource_root.add_child(body)
+		_spawn_gatherable("Berries", rng.randi_range(2, 4), position, "berry_bush", true)
+
+func _spawn_reed_clumps(count: int) -> void:
+	for i in range(count):
+		var position := _random_ground_position(true)
+		if position == Vector3.ZERO:
+			continue
+		_spawn_gatherable("Fiber", rng.randi_range(2, 3), position, "reed_clump", true)
+
+func _spawn_mushroom_clusters(count: int) -> void:
+	for i in range(count):
+		var position := _random_ground_position()
+		if position == Vector3.ZERO:
+			continue
+		_spawn_gatherable("Mushroom", rng.randi_range(1, 2), position, "mushroom_cluster", true)
+
+func _spawn_saplings(count: int) -> void:
+	for i in range(count):
+		var position := _random_ground_position()
+		if position == Vector3.ZERO:
+			continue
+		_spawn_gatherable("Stick", rng.randi_range(1, 2), position, "sapling", true)
+
+func _spawn_bark_nodes(count: int) -> void:
+	for i in range(count):
+		var position := _random_ground_position()
+		if position == Vector3.ZERO:
+			continue
+		_spawn_gatherable("Tinder", 1, position, "bark", false)
+
+func _spawn_stumps(count: int) -> void:
+	for i in range(count):
+		var position := _random_ground_position()
+		if position == Vector3.ZERO:
+			continue
+		_spawn_prop(position, "stump")
+
+func _spawn_fallen_branches(count: int) -> void:
+	for i in range(count):
+		var position := _random_ground_position()
+		if position == Vector3.ZERO:
+			continue
+		_spawn_prop(position, "fallen_branch")
+
+func _spawn_small_boulders(count: int) -> void:
+	for i in range(count):
+		var position := _random_ground_position()
+		if position == Vector3.ZERO:
+			continue
+		_spawn_prop(position, "small_boulder")
+
+func _spawn_shoreline_rocks(count: int) -> void:
+	for i in range(count):
+		var position := _random_ground_position(true, true)
+		if position == Vector3.ZERO:
+			continue
+		_spawn_prop(position, "shore_rock")
+
+func _spawn_driftwood(count: int) -> void:
+	for i in range(count):
+		var position := _random_ground_position(true, true)
+		if position == Vector3.ZERO:
+			continue
+		_spawn_prop(position, "driftwood")
+
+func _spawn_deadwood_piles(count: int) -> void:
+	for i in range(count):
+		var position := _random_ground_position()
+		if position == Vector3.ZERO:
+			continue
+		_spawn_prop(position, "deadwood_pile")
 
 func _spawn_logs(count: int) -> void:
 	for i in range(count):
@@ -753,6 +1030,21 @@ func _spawn_pickup(item_type: String, amount: int, position: Vector3, is_drop: b
 			"position": _vector_to_array(position),
 		})
 
+func _spawn_gatherable(item_type: String, amount: int, position: Vector3, visual_type: String, sway: bool = false, required_tool: String = "", allow_bare_hands: bool = true) -> void:
+	var resource_id := _next_id()
+	if resource_states["resources"].has(str(resource_id)):
+		return
+	var pickup := pickup_scene.instantiate() as Area3D
+	pickup.item_type = item_type
+	pickup.amount = amount
+	pickup.resource_id = resource_id
+	pickup.sway_enabled = sway
+	pickup.required_tool = required_tool
+	pickup.allow_bare_hands = allow_bare_hands
+	resource_root.add_child(pickup)
+	pickup.global_position = position
+	_configure_gatherable_visual(pickup, visual_type)
+
 func _spawn_saved_drops() -> void:
 	var drops: Array = resource_states.get("drops", [])
 	for drop in drops:
@@ -792,25 +1084,210 @@ func _configure_pickup(pickup: Area3D, item_type: String) -> void:
 	elif item_type == "Tinder":
 		mesh = SphereMesh.new()
 		mesh.radius = 0.18
+	elif item_type == "Berries":
+		mesh = SphereMesh.new()
+		mesh.radius = 0.2
+	elif item_type == "Fiber":
+		mesh = CylinderMesh.new()
+		mesh.top_radius = 0.05
+		mesh.bottom_radius = 0.06
+		mesh.height = 0.6
+		mesh_instance.rotation_degrees = Vector3(0, rng.randf_range(0, 360), 15)
+	elif item_type == "Mushroom":
+		mesh = CapsuleMesh.new()
+		mesh.radius = 0.1
+		mesh.height = 0.3
 	mesh_instance.mesh = mesh
+	_apply_item_material(mesh_instance, item_type)
 	var shape: Shape3D = SphereShape3D.new()
 	if mesh is CylinderMesh:
 		var cyl := CylinderShape3D.new()
 		cyl.radius = mesh.bottom_radius
 		cyl.height = mesh.height
 		shape = cyl
+	elif mesh is CapsuleMesh:
+		var cap := CapsuleShape3D.new()
+		cap.radius = (mesh as CapsuleMesh).radius
+		cap.height = (mesh as CapsuleMesh).height
+		shape = cap
+	elif mesh is BoxMesh:
+		var box := BoxShape3D.new()
+		box.size = (mesh as BoxMesh).size
+		shape = box
 	else:
 		var sph := SphereShape3D.new()
 		sph.radius = (mesh as SphereMesh).radius
 		shape = sph
 	collision.shape = shape
 
-func _random_ground_position() -> Vector3:
+func _configure_gatherable_visual(pickup: Area3D, visual_type: String) -> void:
+	var mesh_instance: MeshInstance3D = pickup.get_node("MeshInstance3D")
+	var collision: CollisionShape3D = pickup.get_node("CollisionShape3D")
+	var mesh: Mesh = SphereMesh.new()
+	if visual_type == "berry_bush":
+		var sphere := SphereMesh.new()
+		sphere.radius = 0.35
+		mesh = sphere
+		mesh_instance.scale = Vector3(1.2, 0.8, 1.2)
+	elif visual_type == "reed_clump":
+		var cyl := CylinderMesh.new()
+		cyl.top_radius = 0.06
+		cyl.bottom_radius = 0.08
+		cyl.height = 0.9
+		mesh = cyl
+		mesh_instance.scale = Vector3(1, 1.4, 1)
+	elif visual_type == "mushroom_cluster":
+		var cap := CapsuleMesh.new()
+		cap.radius = 0.18
+		cap.height = 0.4
+		mesh = cap
+		mesh_instance.scale = Vector3(1, 0.8, 1)
+	elif visual_type == "sapling":
+		var trunk := CylinderMesh.new()
+		trunk.top_radius = 0.05
+		trunk.bottom_radius = 0.08
+		trunk.height = 1.2
+		mesh = trunk
+	elif visual_type == "bark":
+		var box := BoxMesh.new()
+		box.size = Vector3(0.35, 0.2, 0.1)
+		mesh = box
+	elif visual_type == "stone_node":
+		var rock := SphereMesh.new()
+		rock.radius = 0.35
+		mesh = rock
+	mesh_instance.mesh = mesh
+	_apply_visual_material(mesh_instance, visual_type)
+	var shape: Shape3D = SphereShape3D.new()
+	if mesh is CylinderMesh:
+		var cyl := CylinderShape3D.new()
+		cyl.radius = (mesh as CylinderMesh).bottom_radius
+		cyl.height = (mesh as CylinderMesh).height
+		shape = cyl
+	elif mesh is BoxMesh:
+		var box_shape := BoxShape3D.new()
+		box_shape.size = (mesh as BoxMesh).size
+		shape = box_shape
+	elif mesh is CapsuleMesh:
+		var cap_shape := CapsuleShape3D.new()
+		cap_shape.radius = (mesh as CapsuleMesh).radius
+		cap_shape.height = (mesh as CapsuleMesh).height
+		shape = cap_shape
+	else:
+		var sph := SphereShape3D.new()
+		sph.radius = (mesh as SphereMesh).radius
+		shape = sph
+	collision.shape = shape
+
+func _spawn_prop(position: Vector3, prop_type: String) -> void:
+	var body := StaticBody3D.new()
+	var mesh_instance := MeshInstance3D.new()
+	var mesh: Mesh = null
+	if prop_type == "stump":
+		var cyl := CylinderMesh.new()
+		cyl.top_radius = 0.4
+		cyl.bottom_radius = 0.5
+		cyl.height = 0.6
+		mesh = cyl
+	elif prop_type == "fallen_branch":
+		var branch := CylinderMesh.new()
+		branch.top_radius = 0.08
+		branch.bottom_radius = 0.1
+		branch.height = 1.6
+		mesh = branch
+		mesh_instance.rotation_degrees = Vector3(0, rng.randf_range(0, 360), 90)
+	elif prop_type == "small_boulder":
+		var rock := SphereMesh.new()
+		rock.radius = rng.randf_range(0.5, 1.1)
+		mesh = rock
+	elif prop_type == "shore_rock":
+		var shore := SphereMesh.new()
+		shore.radius = rng.randf_range(0.35, 0.8)
+		mesh = shore
+	elif prop_type == "driftwood":
+		var drift := CylinderMesh.new()
+		drift.top_radius = 0.12
+		drift.bottom_radius = 0.14
+		drift.height = 2.0
+		mesh = drift
+		mesh_instance.rotation_degrees = Vector3(0, rng.randf_range(0, 360), 90)
+	elif prop_type == "deadwood_pile":
+		var pile := BoxMesh.new()
+		pile.size = Vector3(0.9, 0.35, 0.7)
+		mesh = pile
+	if mesh == null:
+		return
+	mesh_instance.mesh = mesh
+	_apply_visual_material(mesh_instance, prop_type)
+	body.add_child(mesh_instance)
+	var collision := CollisionShape3D.new()
+	var shape: Shape3D = SphereShape3D.new()
+	if mesh is CylinderMesh:
+		var cyl_shape := CylinderShape3D.new()
+		cyl_shape.radius = (mesh as CylinderMesh).bottom_radius
+		cyl_shape.height = (mesh as CylinderMesh).height
+		shape = cyl_shape
+	elif mesh is BoxMesh:
+		var box_shape := BoxShape3D.new()
+		box_shape.size = (mesh as BoxMesh).size
+		shape = box_shape
+	else:
+		var sph_shape := SphereShape3D.new()
+		sph_shape.radius = (mesh as SphereMesh).radius
+		shape = sph_shape
+	collision.shape = shape
+	body.add_child(collision)
+	body.global_position = position
+	resource_root.add_child(body)
+
+func _apply_item_material(mesh_instance: MeshInstance3D, item_type: String) -> void:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = inventory.get_item_color(item_type)
+	mat.roughness = 0.8
+	mesh_instance.material_override = mat
+
+func _apply_visual_material(mesh_instance: MeshInstance3D, visual_type: String) -> void:
+	var mat := StandardMaterial3D.new()
+	if visual_type == "berry_bush":
+		mat.albedo_color = Color(0.15, 0.4, 0.2)
+	elif visual_type == "reed_clump":
+		mat.albedo_color = Color(0.25, 0.5, 0.2)
+	elif visual_type == "mushroom_cluster":
+		mat.albedo_color = Color(0.6, 0.45, 0.35)
+	elif visual_type == "sapling":
+		mat.albedo_color = Color(0.3, 0.4, 0.2)
+	elif visual_type == "bark":
+		mat.albedo_color = Color(0.4, 0.25, 0.15)
+	elif visual_type == "stone_node":
+		mat.albedo_color = Color(0.45, 0.46, 0.5)
+	elif visual_type == "stump":
+		mat.albedo_color = Color(0.4, 0.27, 0.18)
+	elif visual_type == "fallen_branch":
+		mat.albedo_color = Color(0.36, 0.24, 0.16)
+	elif visual_type == "small_boulder":
+		mat.albedo_color = Color(0.4, 0.4, 0.42)
+	elif visual_type == "shore_rock":
+		mat.albedo_color = Color(0.5, 0.5, 0.55)
+	elif visual_type == "driftwood":
+		mat.albedo_color = Color(0.55, 0.45, 0.3)
+	elif visual_type == "deadwood_pile":
+		mat.albedo_color = Color(0.35, 0.25, 0.15)
+	else:
+		mat.albedo_color = Color(0.5, 0.5, 0.5)
+	mat.roughness = 0.9
+	mesh_instance.material_override = mat
+
+func _random_ground_position(near_water: bool = false, allow_shore: bool = false) -> Vector3:
 	var half := terrain_size * 0.5 - 4.0
 	for attempt in range(12):
 		var x := rng.randf_range(-half, half)
 		var z := rng.randf_range(-half, half)
-		if Vector2(x, z).distance_to(Vector2(lake_center.x, lake_center.z)) < lake_radius + 3.0:
+		var distance := Vector2(x, z).distance_to(Vector2(lake_center.x, lake_center.z))
+		if distance < lake_radius - 1.0:
+			continue
+		if not allow_shore and distance < lake_radius + 3.0:
+			continue
+		if near_water and distance > lake_radius + 7.0:
 			continue
 		var y := _get_height_at(x, z)
 		return Vector3(x, y, z)
@@ -828,4 +1305,5 @@ func _on_tree_chopped(tree_id: int) -> void:
 	resource_states["trees"][str(tree_id)] = {
 		"fallen": true,
 		"health": 0,
+		"chopped": true,
 	}
