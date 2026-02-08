@@ -11,10 +11,18 @@ extends CanvasLayer
 
 @onready var health_label: Label = $Root/BottomLeft/HealthLabel
 @onready var temp_status: Label = $Root/BottomLeft/TempStatus
+@onready var needs_icons: HBoxContainer = $Root/BottomLeft/NeedsIcons
+@onready var health_icon: TextureRect = $Root/BottomLeft/NeedsIcons/HealthIcon
+@onready var warmth_icon: TextureRect = $Root/BottomLeft/NeedsIcons/WarmthIcon
+@onready var hunger_icon: TextureRect = $Root/BottomLeft/NeedsIcons/HungerIcon
+@onready var thirst_icon: TextureRect = $Root/BottomLeft/NeedsIcons/ThirstIcon
+@onready var fatigue_icon: TextureRect = $Root/BottomLeft/NeedsIcons/FatigueIcon
 @onready var needs_label: Label = $Root/BottomLeft/NeedsLabel
 @onready var hunger_bar: ProgressBar = $Root/BottomLeft/NeedsBars/HungerBar
 @onready var thirst_bar: ProgressBar = $Root/BottomLeft/NeedsBars/ThirstBar
 @onready var fatigue_bar: ProgressBar = $Root/BottomLeft/NeedsBars/FatigueBar
+@onready var campfire_box: VBoxContainer = $Root/BottomLeft/CampfireBox
+@onready var fuel_bar: ProgressBar = $Root/BottomLeft/CampfireBox/FuelBar
 
 @onready var hotbar: HBoxContainer = $Root/BottomRight/Hotbar
 
@@ -29,19 +37,27 @@ extends CanvasLayer
 @onready var crafting_panel: PanelContainer = $Root/CraftingPanel
 
 @onready var item_grid: GridContainer = $Root/InventoryPanel/VBox/ItemGrid
-
-@onready var craft_kit_button: Button = $Root/CraftingPanel/VBox/CraftKit
-@onready var place_fire_button: Button = $Root/CraftingPanel/VBox/PlaceFire
-@onready var light_fire_button: Button = $Root/CraftingPanel/VBox/LightFire
-@onready var add_fuel_button: Button = $Root/CraftingPanel/VBox/AddFuel
+@onready var crafting_tabs: TabContainer = $Root/CraftingPanel/VBox/CraftingTabs
+@onready var craft_quantity: OptionButton = $Root/CraftingPanel/VBox/CraftingControls/CraftQuantity
+@onready var recipe_details: RichTextLabel = $Root/CraftingPanel/VBox/RecipeDetails
+@onready var craft_button: Button = $Root/CraftingPanel/VBox/CraftButton
+@onready var tools_list: VBoxContainer = $Root/CraftingPanel/VBox/CraftingTabs/Tools/ToolsList
+@onready var fire_list: VBoxContainer = $Root/CraftingPanel/VBox/CraftingTabs/Fire/FireList
+@onready var food_list: VBoxContainer = $Root/CraftingPanel/VBox/CraftingTabs/Food/FoodList
+@onready var materials_list: VBoxContainer = $Root/CraftingPanel/VBox/CraftingTabs/Materials/MaterialsList
 
 var message_timer: float = 0.0
 var hotbar_slots: Array[PanelContainer] = []
 var last_inventory_hash: int = 0
 var debug_visible: bool = false
+var recipe_entries: Dictionary = {}
+var selected_recipe_id: String = ""
+var current_max_craftable: int = 0
 
 func _ready() -> void:
 	_build_hotbar()
+	_setup_craft_controls()
+	_setup_need_icons()
 
 func _process(delta: float) -> void:
 	if message_timer > 0.0:
@@ -64,17 +80,15 @@ func update_hud(data: Dictionary) -> void:
 	thirst_bar.value = data.thirst
 	fatigue_bar.value = data.fatigue
 	needs_label.text = "🍖 Hunger: %.0f  💧 Thirst: %.0f  💤 Fatigue: %.0f" % [data.hunger, data.thirst, data.fatigue]
+	_update_need_tooltips(data)
+	_update_campfire(data.campfire_fuel, data.campfire_max_fuel)
 
 	_update_objectives(data.objective, data.objective_distance, data.objectives_list)
 	interact_label.text = data.prompt
 
 	_update_inventory(data.inventory)
-	_update_hotbar(data.hotbar, data.active_hotbar)
-
-	craft_kit_button.disabled = not (data.inventory.get("Stick", 0) >= 5 and data.inventory.get("Tinder", 0) >= 3)
-	place_fire_button.disabled = data.inventory.get("CampfireKit", 0) <= 0 or data.campfire != null
-	light_fire_button.disabled = data.campfire == null or data.campfire.is_lit
-	add_fuel_button.disabled = data.campfire == null or data.inventory.get("Stick", 0) <= 0
+	_update_hotbar(data.hotbar, data.active_hotbar, data.inventory)
+	_update_crafting_panel(data.inventory)
 
 	if debug_visible:
 		debug_label.visible = true
@@ -144,14 +158,17 @@ func _build_hotbar() -> void:
 		hotbar.add_child(panel)
 		hotbar_slots.append(panel)
 
-func _update_hotbar(items: Array, active_index: int) -> void:
+func _update_hotbar(items: Array, active_index: int, inventory: Dictionary) -> void:
 	for i in range(hotbar_slots.size()):
 		var panel := hotbar_slots[i]
 		var label := panel.get_child(0) as Label
 		var item_name := ""
 		if i < items.size():
 			item_name = str(items[i])
-		label.text = "%d\n%s" % [i + 1, item_name]
+		var count_text := ""
+		if item_name != "":
+			count_text = " x%d" % int(inventory.get(item_name, 0))
+		label.text = "%d\n%s%s" % [i + 1, item_name, count_text]
 		panel.add_theme_stylebox_override("panel", _make_hotbar_style(i == active_index))
 
 func _make_hotbar_style(active: bool) -> StyleBoxFlat:
@@ -192,14 +209,119 @@ func _make_item_icon(color: Color) -> Texture2D:
 	image.fill(color)
 	return ImageTexture.create_from_image(image)
 
-func _on_craft_kit_pressed() -> void:
-	get_parent().craft_campfire_kit()
+func set_recipes(recipes: Array) -> void:
+	recipe_entries.clear()
+	_clear_recipe_lists()
+	for recipe in recipes:
+		if typeof(recipe) != TYPE_DICTIONARY:
+			continue
+		var category := str(recipe.get("category", ""))
+		var target_list := _get_recipe_list(category)
+		if target_list == null:
+			continue
+		var button := Button.new()
+		button.text = str(recipe.get("name", recipe.get("id", "Recipe")))
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.pressed.connect(_on_recipe_selected.bind(str(recipe.get("id", ""))))
+		target_list.add_child(button)
+		recipe_entries[str(recipe.get("id", ""))] = recipe
+	if recipes.size() > 0:
+		_select_first_recipe()
 
-func _on_place_fire_pressed() -> void:
-	get_parent().place_campfire()
+func _setup_craft_controls() -> void:
+	craft_quantity.clear()
+	craft_quantity.add_item("1", 1)
+	craft_quantity.add_item("Max", 2)
+	craft_button.pressed.connect(_on_craft_pressed)
 
-func _on_light_fire_pressed() -> void:
-	get_parent().light_fire()
+func _setup_need_icons() -> void:
+	health_icon.texture = _make_item_icon(Color(0.8, 0.2, 0.2))
+	warmth_icon.texture = _make_item_icon(Color(0.9, 0.6, 0.2))
+	hunger_icon.texture = _make_item_icon(Color(0.7, 0.3, 0.2))
+	thirst_icon.texture = _make_item_icon(Color(0.2, 0.5, 0.9))
+	fatigue_icon.texture = _make_item_icon(Color(0.7, 0.7, 0.7))
 
-func _on_add_fuel_pressed() -> void:
-	get_parent().add_fuel()
+func _update_need_tooltips(data: Dictionary) -> void:
+	health_icon.tooltip_text = "Health: %.0f" % data.health
+	warmth_icon.tooltip_text = "Warmth: %.1f" % data.body_temp
+	hunger_icon.tooltip_text = "Hunger: %.0f" % data.hunger
+	thirst_icon.tooltip_text = "Thirst: %.0f" % data.thirst
+	fatigue_icon.tooltip_text = "Fatigue: %.0f" % data.fatigue
+
+func _update_campfire(fuel: float, max_fuel: float) -> void:
+	if max_fuel <= 0.0:
+		campfire_box.visible = false
+		return
+	campfire_box.visible = true
+	fuel_bar.max_value = max_fuel
+	fuel_bar.value = fuel
+
+func _update_crafting_panel(inventory: Dictionary) -> void:
+	if selected_recipe_id == "":
+		craft_button.disabled = true
+		recipe_details.text = ""
+		return
+	var recipe: Dictionary = recipe_entries.get(selected_recipe_id, {})
+	var requirements: Dictionary = recipe.get("requirements", {})
+	var outputs: Dictionary = recipe.get("outputs", {})
+	var lines: Array[String] = []
+	current_max_craftable = _get_max_craftable(requirements, inventory)
+	for key in requirements.keys():
+		var need := int(requirements[key])
+		var have := int(inventory.get(key, 0))
+		var color := "green" if have >= need else "red"
+		lines.append("[color=%s]%s: %d/%d[/color]" % [color, str(key), have, need])
+	if outputs.keys().size() > 0:
+		var output_parts: Array[String] = []
+		for key in outputs.keys():
+			output_parts.append("%s x%d" % [str(key), int(outputs[key])])
+		lines.append("[color=yellow]Outputs: %s[/color]" % ", ".join(output_parts))
+	recipe_details.text = "[b]%s[/b]\n%s" % [str(recipe.get("name", "")), "\n".join(lines)]
+	craft_button.disabled = current_max_craftable <= 0
+
+func _get_recipe_list(category: String) -> VBoxContainer:
+	if category == "Tools":
+		return tools_list
+	if category == "Fire":
+		return fire_list
+	if category == "Food":
+		return food_list
+	if category == "Materials":
+		return materials_list
+	return null
+
+func _clear_recipe_lists() -> void:
+	for list_container in [tools_list, fire_list, food_list, materials_list]:
+		for child in list_container.get_children():
+			child.queue_free()
+
+func _select_first_recipe() -> void:
+	for key in recipe_entries.keys():
+		selected_recipe_id = key
+		return
+
+func _on_recipe_selected(recipe_id: String) -> void:
+	selected_recipe_id = recipe_id
+
+func _on_craft_pressed() -> void:
+	if selected_recipe_id == "":
+		return
+	var qty := _get_selected_quantity()
+	get_parent().craft_recipe(selected_recipe_id, qty)
+
+func _get_selected_quantity() -> int:
+	if craft_quantity.get_selected_id() == 2:
+		return current_max_craftable
+	return 1
+
+func _get_max_craftable(requirements: Dictionary, inventory: Dictionary) -> int:
+	var max_qty := INF
+	for key in requirements.keys():
+		var need := int(requirements[key])
+		if need <= 0:
+			continue
+		var available := int(inventory.get(key, 0))
+		max_qty = min(max_qty, int(floor(float(available) / float(need))))
+	if max_qty == INF:
+		return 0
+	return int(max_qty)

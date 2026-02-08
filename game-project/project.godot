@@ -66,6 +66,13 @@ toggle_crafting={
 "type": "key"
 }]
 }
+use_item={
+"deadzone": 0.5,
+"events": [{
+"keycode": 70,
+"type": "key"
+}]
+}
 save_game={
 "deadzone": 0.5,
 "events": [{
@@ -126,6 +133,20 @@ hotbar_6={
 "deadzone": 0.5,
 "events": [{
 "keycode": 54,
+"type": "key"
+}]
+}
+rotate_left={
+"deadzone": 0.5,
+"events": [{
+"keycode": 81,
+"type": "key"
+}]
+}
+rotate_right={
+"deadzone": 0.5,
+"events": [{
+"keycode": 82,
 "type": "key"
 }]
 }
