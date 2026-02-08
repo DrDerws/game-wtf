@@ -1,100 +1,149 @@
-[gd_scene load_steps=14 format=3 uid="uid://c4as7rkw6r8c2"]
+[gd_scene load_steps=16 format=3]
 
-[ext_resource type="PackedScene" path="res://scenes/Player.tscn" id="1"]
-[ext_resource type="Script" path="res://scripts/Game.gd" id="2"]
-[ext_resource type="Script" path="res://scripts/Inventory.gd" id="3"]
-[ext_resource type="PackedScene" path="res://ui/HUD.tscn" id="4"]
+[ext_resource type="Script" path="res://scripts/Main.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/Player.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/Tree.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/Rock.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/Pickup.tscn" id="5"]
+[ext_resource type="Script" path="res://scripts/Inventory.gd" id="6"]
+[ext_resource type="Script" path="res://scripts/ToastLabel.gd" id="7"]
+[ext_resource type="PackedScene" path="res://ui/InventoryUI.tscn" id="8"]
 
-[sub_resource type="Environment" id="1"]
-	background_mode = 2
-	background_color = Color(0.62, 0.72, 0.82, 1.0)
-	fog_enabled = true
-	fog_density = 0.02
-	fog_color = Color(0.78, 0.86, 0.94, 1.0)
-	ambient_light_color = Color(0.68, 0.74, 0.86, 1.0)
-	ambient_light_energy = 1.1
+[sub_resource type="ProceduralSkyMaterial" id="1"]
+sky_top_color = Color(0.45, 0.55, 0.7, 1)
+sky_horizon_color = Color(0.65, 0.7, 0.8, 1)
 
-[sub_resource type="PlaneMesh" id="2"]
-	size = Vector2(120, 120)
-	subdivide_width = 100
-	subdivide_depth = 100
+[sub_resource type="Sky" id="2"]
+sky_material = SubResource("1")
 
-[sub_resource type="BoxShape3D" id="3"]
-	size = Vector3(120, 8, 120)
+[sub_resource type="Environment" id="3"]
+background_mode = 2
+sky = SubResource("2")
+fog_enabled = true
+fog_light_color = Color(0.75, 0.82, 0.9, 1)
+fog_density = 0.02
+ambient_light_energy = 0.8
+ambient_light_color = Color(0.55, 0.65, 0.8, 1)
 
-[sub_resource type="Shader" id="4"]
-	code = "shader_type spatial;\nrender_mode cull_back, diffuse_burley, specular_schlick_ggx;\n\nuniform vec3 snow_color : source_color = vec3(0.85, 0.9, 0.98);\nuniform vec3 grass_color : source_color = vec3(0.22, 0.35, 0.26);\nuniform float snow_height = 1.1;\n\nvarying vec3 world_pos;\n\nvoid vertex() {\n\tworld_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;\n}\n\nvoid fragment() {\n\tfloat height = world_pos.y;\n\tfloat blend = smoothstep(snow_height - 0.6, snow_height + 0.4, height);\n\tvec3 base = mix(grass_color, snow_color, blend);\n\tfloat noise = fract(sin(dot(world_pos.xz, vec2(12.9898, 78.233))) * 43758.5453);\n\tbase = mix(base, base * 1.15, noise * 0.25);\n\tALBEDO = base;\n\tROUGHNESS = 0.95;\n\tSPECULAR = 0.1;\n}\n"
+[sub_resource type="PlaneMesh" id="4"]
+size = Vector2(120, 120)
 
-[sub_resource type="ShaderMaterial" id="5"]
-	shader = SubResource("4")
+[sub_resource type="StandardMaterial3D" id="5"]
+albedo_color = Color(0.75, 0.8, 0.85, 1)
+roughness = 0.95
 
-[sub_resource type="Shader" id="6"]
-	code = "shader_type spatial;\nrender_mode cull_back, blend_mix, depth_prepass_alpha, specular_schlick_ggx;\n\nuniform vec3 water_color : source_color = vec3(0.12, 0.35, 0.48);\nuniform float wave_amp = 0.08;\nuniform float wave_freq = 0.9;\n\nvoid vertex() {\n\tVERTEX.y += sin(TIME * 1.3 + VERTEX.x * wave_freq) * wave_amp;\n\tVERTEX.y += cos(TIME * 1.0 + VERTEX.z * wave_freq) * wave_amp;\n}\n\nvoid fragment() {\n\tALBEDO = water_color;\n\tROUGHNESS = 0.2;\n\tSPECULAR = 0.8;\n\tALPHA = 0.8;\n}\n"
+[sub_resource type="BoxShape3D" id="6"]
+size = Vector3(120, 1, 120)
 
-[sub_resource type="ShaderMaterial" id="7"]
-	shader = SubResource("6")
+[sub_resource type="PlaneMesh" id="7"]
+size = Vector2(40, 40)
 
-[sub_resource type="ParticleProcessMaterial" id="8"]
-	emission_shape = 1
-	emission_box_extents = Vector3(35, 12, 35)
-	gravity = Vector3(0, -3.0, 0)
-	initial_velocity = 0.8
-	angle = 12.0
-	scale = 0.08
-	scale_random = 0.5
+[sub_resource type="StandardMaterial3D" id="8"]
+albedo_color = Color(0.2, 0.45, 0.6, 0.7)
+roughness = 0.1
+transparency = 1
 
-[sub_resource type="QuadMesh" id="9"]
-	size = Vector2(0.08, 0.08)
+[sub_resource type="SphereMesh" id="9"]
+radius = 4.0
+
+[sub_resource type="SphereShape3D" id="10"]
+radius = 4.0
 
 [node name="Main" type="Node3D"]
-	script = ExtResource("2")
+script = ExtResource("1")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
-	environment = SubResource("1")
+environment = SubResource("3")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-	light_energy = 1.3
-	light_color = Color(0.96, 0.92, 0.86, 1.0)
-	shadow_enabled = true
-	shadow_bias = 0.2
-	rotation_degrees = Vector3(-42, 32, 0)
+light_color = Color(0.8, 0.85, 1, 1)
+light_energy = 1.2
+rotation = Vector3(-0.9, 0.8, 0)
 
 [node name="Ground" type="StaticBody3D" parent="."]
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Ground"]
-	mesh = SubResource("2")
-	material_override = SubResource("5")
+mesh = SubResource("4")
+material_override = SubResource("5")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Ground"]
-	shape = SubResource("3")
-	position = Vector3(0, 0, 0)
+shape = SubResource("6")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
 
-[node name="Water" type="MeshInstance3D" parent="."]
-	mesh = SubResource("2")
-	material_override = SubResource("7")
-	position = Vector3(0, -0.6, -20)
-	scale = Vector3(0.5, 1, 0.4)
+[node name="Lake" type="MeshInstance3D" parent="."]
+mesh = SubResource("7")
+material_override = SubResource("8")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, -0.2, -10)
 
-[node name="Player" parent="." instance=ExtResource("1")]
-	position = Vector3(0, 2.2, 10)
+[node name="Mound1" type="StaticBody3D" parent="."]
+transform = Transform3D(1.6, 0, 0, 0, 0.6, 0, 0, 0, 1.4, 18, -1.5, 8)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Mound1"]
+mesh = SubResource("9")
+material_override = SubResource("5")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Mound1"]
+shape = SubResource("10")
+
+[node name="Mound2" type="StaticBody3D" parent="."]
+transform = Transform3D(1.2, 0, 0, 0, 0.5, 0, 0, 0, 1.1, -20, -1.2, 16)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Mound2"]
+mesh = SubResource("9")
+material_override = SubResource("5")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Mound2"]
+shape = SubResource("10")
+
+[node name="Props" type="Node3D" parent="."]
+
+[node name="Tree1" parent="Props" instance=ExtResource("3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, -4)
+
+[node name="Tree2" parent="Props" instance=ExtResource("3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0, 6)
+
+[node name="Tree3" parent="Props" instance=ExtResource("3")]
+transform = Transform3D(1.1, 0, 0, 0, 1.1, 0, 0, 0, 1.1, 8, 0, 10)
+
+[node name="Tree4" parent="Props" instance=ExtResource("3")]
+transform = Transform3D(0.9, 0, 0, 0, 0.9, 0, 0, 0, 0.9, 14, 0, -6)
+
+[node name="Rock1" parent="Props" instance=ExtResource("4")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, -2)
+
+[node name="Rock2" parent="Props" instance=ExtResource("4")]
+transform = Transform3D(1.3, 0, 0, 0, 1.1, 0, 0, 0, 1.2, -2, 0, 12)
+
+[node name="Pickups" type="Node3D" parent="."]
+
+[node name="StickPickup" parent="Pickups" instance=ExtResource("5")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0.2, 2)
+item_id = "stick"
+display_name = "Stick"
+
+[node name="TinderPickup" parent="Pickups" instance=ExtResource("5")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0.2, 1)
+item_id = "tinder"
+display_name = "Tinder"
+
+[node name="Player" parent="." instance=ExtResource("2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 6)
 
 [node name="Inventory" type="Node" parent="."]
-	script = ExtResource("3")
+script = ExtResource("6")
 
-[node name="ResourceRoot" type="Node3D" parent="."]
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
 
-[node name="Campfires" type="Node3D" parent="."]
+[node name="InventoryUI" parent="CanvasLayer" instance=ExtResource("8")]
 
-[node name="Clouds" type="Node3D" parent="."]
-
-[node name="Weather" type="Node3D" parent="."]
-
-[node name="SnowParticles" type="GPUParticles3D" parent="Weather"]
-	amount = 1200
-	lifetime = 6.0
-	emitting = false
-	process_material = SubResource("8")
-	draw_pass_1 = SubResource("9")
-	visibility_aabb = AABB(-40, 0, -40, 80, 40, 80)
-
-[node name="HUD" parent="." instance=ExtResource("4")]
+[node name="ToastLabel" type="Label" parent="CanvasLayer"]
+anchors_preset = 8
+anchor_left = 0.35
+anchor_top = 0.85
+anchor_right = 0.65
+anchor_bottom = 0.95
+text = ""
+horizontal_alignment = 1
+vertical_alignment = 1
+script = ExtResource("7")
