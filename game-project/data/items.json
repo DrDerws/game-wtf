@@ -1,0 +1,26 @@
+{
+  "stick": {
+    "display_name": "Stick",
+    "max_stack": 50
+  },
+  "log": {
+    "display_name": "Log",
+    "max_stack": 20
+  },
+  "tinder": {
+    "display_name": "Tinder",
+    "max_stack": 50
+  },
+  "stone": {
+    "display_name": "Stone",
+    "max_stack": 50
+  },
+  "flint_steel": {
+    "display_name": "Flint & Steel",
+    "max_stack": 1
+  },
+  "stone_axe": {
+    "display_name": "Stone Axe",
+    "max_stack": 1
+  }
+}
