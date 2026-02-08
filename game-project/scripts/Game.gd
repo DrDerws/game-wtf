@@ -832,7 +832,7 @@ func _generate_terrain_mesh() -> void:
 	shape.map_width = terrain_resolution + 1
 	shape.map_depth = terrain_resolution + 1
 	shape.map_data = heights
-dwa	shape.cell_size = step
+	shape.cell_size = step
 	ground_collision.shape = shape
 
 func _make_terrain_material() -> ShaderMaterial:
