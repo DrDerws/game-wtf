@@ -296,7 +296,7 @@ func _spawn_tree_drops(origin: Vector3) -> void:
 	_spawn_pickup("Stick", 2, origin + Vector3(0.3, 0.2, -0.6), true)
 	inventory.inventory_changed.emit()
 
-func _update_objectives(delta: float) -> void:
+func _update_objectives(_delta: float) -> void:
 	var current: Dictionary = get_current_objective()
 	if current.is_empty():
 		return

@@ -175,7 +175,10 @@ func _make_hotbar_style(active: bool) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.1, 0.1, 0.1, 0.7)
 	style.border_color = Color(0.8, 0.6, 0.2) if active else Color(0.2, 0.2, 0.2)
-	style.border_width_all = 2
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
 	style.corner_radius_top_left = 4
 	style.corner_radius_top_right = 4
 	style.corner_radius_bottom_left = 4

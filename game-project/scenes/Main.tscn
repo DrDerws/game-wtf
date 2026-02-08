@@ -23,13 +23,13 @@
 	size = Vector3(120, 8, 120)
 
 [sub_resource type="Shader" id="4"]
-	code = "shader_type spatial;\nrender_mode cull_back, diffuse_burley, specular_schlick_ggx;\n\nuniform vec3 snow_color : source_color = vec3(0.85, 0.9, 0.98);\nuniform vec3 grass_color : source_color = vec3(0.22, 0.35, 0.26);\nuniform float snow_height = 1.1;\n\nvoid fragment() {\n\tfloat height = WORLD_POSITION.y;\tfloat blend = smoothstep(snow_height - 0.6, snow_height + 0.4, height);\tvec3 base = mix(grass_color, snow_color, blend);\tfloat noise = fract(sin(dot(WORLD_POSITION.xz, vec2(12.9898, 78.233))) * 43758.5453);\tbase = mix(base, base * 1.15, noise * 0.25);\tALBEDO = base;\tROUGHNESS = 0.95;\tSPECULAR = 0.1;\n}\n"
+	code = "shader_type spatial;\nrender_mode cull_back, diffuse_burley, specular_schlick_ggx;\n\nuniform vec3 snow_color : source_color = vec3(0.85, 0.9, 0.98);\nuniform vec3 grass_color : source_color = vec3(0.22, 0.35, 0.26);\nuniform float snow_height = 1.1;\n\nvarying vec3 world_pos;\n\nvoid vertex() {\n\tworld_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;\n}\n\nvoid fragment() {\n\tfloat height = world_pos.y;\n\tfloat blend = smoothstep(snow_height - 0.6, snow_height + 0.4, height);\n\tvec3 base = mix(grass_color, snow_color, blend);\n\tfloat noise = fract(sin(dot(world_pos.xz, vec2(12.9898, 78.233))) * 43758.5453);\n\tbase = mix(base, base * 1.15, noise * 0.25);\n\tALBEDO = base;\n\tROUGHNESS = 0.95;\n\tSPECULAR = 0.1;\n}\n"
 
 [sub_resource type="ShaderMaterial" id="5"]
 	shader = SubResource("4")
 
 [sub_resource type="Shader" id="6"]
-	code = "shader_type spatial;\nrender_mode cull_back, blend_mix, depth_draw_alpha_prepass, specular_schlick_ggx;\n\nuniform vec3 water_color : source_color = vec3(0.12, 0.35, 0.48);\nuniform float wave_amp = 0.08;\nuniform float wave_freq = 0.9;\n\nvoid vertex() {\tVERTEX.y += sin(TIME * 1.3 + VERTEX.x * wave_freq) * wave_amp;\tVERTEX.y += cos(TIME * 1.0 + VERTEX.z * wave_freq) * wave_amp;\n}\n\nvoid fragment() {\tALBEDO = water_color;\tROUGHNESS = 0.2;\tSPECULAR = 0.8;\tALPHA = 0.8;\n}\n"
+	code = "shader_type spatial;\nrender_mode cull_back, blend_mix, depth_prepass_alpha, specular_schlick_ggx;\n\nuniform vec3 water_color : source_color = vec3(0.12, 0.35, 0.48);\nuniform float wave_amp = 0.08;\nuniform float wave_freq = 0.9;\n\nvoid vertex() {\n\tVERTEX.y += sin(TIME * 1.3 + VERTEX.x * wave_freq) * wave_amp;\n\tVERTEX.y += cos(TIME * 1.0 + VERTEX.z * wave_freq) * wave_amp;\n}\n\nvoid fragment() {\n\tALBEDO = water_color;\n\tROUGHNESS = 0.2;\n\tSPECULAR = 0.8;\n\tALPHA = 0.8;\n}\n"
 
 [sub_resource type="ShaderMaterial" id="7"]
 	shader = SubResource("6")
