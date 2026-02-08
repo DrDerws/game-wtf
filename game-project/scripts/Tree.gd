@@ -7,7 +7,7 @@ signal chopped(tree_id: int)
 
 var health: int
 var is_fallen: bool = false
-var chopped: bool = false
+var is_chopped: bool = false
 
 @onready var trunk: MeshInstance3D = $Trunk
 @onready var leaves: MeshInstance3D = $Leaves
@@ -31,7 +31,7 @@ func chop(power: int = 1) -> bool:
 
 func _fall() -> void:
 	is_fallen = true
-	chopped = true
+	is_chopped = true
 	set_collision_layer_value(1, false)
 	set_collision_mask_value(1, false)
 	var tween := create_tween()
@@ -47,7 +47,7 @@ func get_state() -> Dictionary:
 	return {
 		"health": health,
 		"fallen": is_fallen,
-		"chopped": chopped,
+		"chopped": is_chopped,
 	}
 
 func apply_state(state: Dictionary) -> void:
@@ -55,7 +55,7 @@ func apply_state(state: Dictionary) -> void:
 		return
 	health = int(state.get("health", max_health))
 	is_fallen = bool(state.get("fallen", false))
-	chopped = bool(state.get("chopped", is_fallen))
+	is_chopped = bool(state.get("chopped", is_fallen))
 	if is_fallen:
 		leaves.visible = false
 		set_collision_layer_value(1, false)
