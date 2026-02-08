@@ -85,6 +85,8 @@
 
 [node name="Campfires" type="Node3D" parent="."]
 
+[node name="Clouds" type="Node3D" parent="."]
+
 [node name="Weather" type="Node3D" parent="."]
 
 [node name="SnowParticles" type="GPUParticles3D" parent="Weather"]
