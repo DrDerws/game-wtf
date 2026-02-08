@@ -6,6 +6,9 @@ A third-person, arctic survival prototype built in Godot 4.6. The gameplay focus
 1. Open the project in Godot 4.6 (or newer).
 2. Press **F5** to run the main scene.
 
+## Troubleshooting
+- **Unexpected identifier in class body**: This error usually means a stray token was typed at the top level of a `.gd` file (for example, a random word like `dwa`). Open the script and remove any standalone identifiers that are not part of `var`, `func`, `signal`, or `const` declarations. Line numbers in the error message map to the script shown in Godot's debugger output, so jump to that line and delete the stray text.
+
 ## Controls
 - **WASD**: Move relative to the camera
 - **Right Mouse (hold)**: Capture mouse to rotate camera
