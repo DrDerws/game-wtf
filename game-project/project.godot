@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="Game Project"
+config/name="Game WTF"
 run/main_scene="res://scenes/Bootstrap.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
@@ -52,116 +52,18 @@ interact={
 "type": "key"
 }]
 }
-toggle_inventory={
+inventory={
 "deadzone": 0.5,
 "events": [{
 "keycode": 73,
 "type": "key"
 }]
 }
-toggle_crafting={
+camera_rotate={
 "deadzone": 0.5,
 "events": [{
-"keycode": 67,
-"type": "key"
-}]
-}
-use_item={
-"deadzone": 0.5,
-"events": [{
-"keycode": 70,
-"type": "key"
-}]
-}
-save_game={
-"deadzone": 0.5,
-"events": [{
-"keycode": 4194326,
-"type": "key"
-}]
-}
-load_game={
-"deadzone": 0.5,
-"events": [{
-"keycode": 4194329,
-"type": "key"
-}]
-}
-attack={
-"deadzone": 0.5,
-"events": [{
-"button_index": 1,
+"button_index": 2,
 "type": "mouse_button"
-}]
-}
-hotbar_1={
-"deadzone": 0.5,
-"events": [{
-"keycode": 49,
-"type": "key"
-}]
-}
-hotbar_2={
-"deadzone": 0.5,
-"events": [{
-"keycode": 50,
-"type": "key"
-}]
-}
-hotbar_3={
-"deadzone": 0.5,
-"events": [{
-"keycode": 51,
-"type": "key"
-}]
-}
-hotbar_4={
-"deadzone": 0.5,
-"events": [{
-"keycode": 52,
-"type": "key"
-}]
-}
-hotbar_5={
-"deadzone": 0.5,
-"events": [{
-"keycode": 53,
-"type": "key"
-}]
-}
-hotbar_6={
-"deadzone": 0.5,
-"events": [{
-"keycode": 54,
-"type": "key"
-}]
-}
-rotate_left={
-"deadzone": 0.5,
-"events": [{
-"keycode": 81,
-"type": "key"
-}]
-}
-rotate_right={
-"deadzone": 0.5,
-"events": [{
-"keycode": 82,
-"type": "key"
-}]
-}
-toggle_hints={
-"deadzone": 0.5,
-"events": [{
-"keycode": 72,
-"type": "key"
-}]
-}
-toggle_debug={
-"deadzone": 0.5,
-"events": [{
-"keycode": 4194336,
-"type": "key"
 }]
 }
 

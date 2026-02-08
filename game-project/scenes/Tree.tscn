@@ -1,29 +1,37 @@
-[gd_scene load_steps=6 format=3 uid="uid://c2cg6x1xkqg01"]
-
-[ext_resource type="Script" path="res://scripts/Tree.gd" id="1"]
+[gd_scene load_steps=5 format=3]
 
 [sub_resource type="CylinderMesh" id="1"]
-	radius = 0.35
-	height = 2.4
+top_radius = 0.2
+bottom_radius = 0.25
+height = 2.2
 
 [sub_resource type="SphereMesh" id="2"]
-	radius = 1.2
+radius = 1.0
 
 [sub_resource type="CapsuleShape3D" id="3"]
-	radius = 0.45
-	height = 2.4
+radius = 0.6
+height = 2.4
 
-[node name="Tree" type="StaticBody3D"]
-	script = ExtResource("1")
+[sub_resource type="StandardMaterial3D" id="4"]
+albedo_color = Color(0.35, 0.26, 0.18, 1)
+
+[sub_resource type="StandardMaterial3D" id="5"]
+albedo_color = Color(0.12, 0.35, 0.18, 1)
+
+[node name="Tree" type="Node3D"]
 
 [node name="Trunk" type="MeshInstance3D" parent="."]
-	mesh = SubResource("1")
-	position = Vector3(0, 1.2, 0)
+mesh = SubResource("1")
+material_override = SubResource("4")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
 
-[node name="Leaves" type="MeshInstance3D" parent="."]
-	mesh = SubResource("2")
-	position = Vector3(0, 2.6, 0)
+[node name="Canopy" type="MeshInstance3D" parent="."]
+mesh = SubResource("2")
+material_override = SubResource("5")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
-	shape = SubResource("3")
-	position = Vector3(0, 1.2, 0)
+[node name="Collider" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Collider"]
+shape = SubResource("3")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)

@@ -1,20 +1,21 @@
-extends Node3D
+extends Node
 
-@export var main_scene_path: String = "res://scenes/Main.tscn"
+const MAIN_SCENE_PATH = "res://scenes/Main.tscn"
 
-@onready var error_label: Label3D = $ErrorLabel
+@onready var error_label = $CanvasLayer/ErrorLabel
 
-func _ready() -> void:
-	var packed: PackedScene = load(main_scene_path) as PackedScene
+func _ready():
+	error_label.visible = false
+	var packed = ResourceLoader.load(MAIN_SCENE_PATH)
 	if packed == null or not (packed is PackedScene):
-		_show_error("Main failed to load")
+		_show_error("Failed to load %s." % MAIN_SCENE_PATH)
 		return
-	var instance: Node3D = packed.instantiate() as Node3D
+	var instance = packed.instantiate()
 	if instance == null:
-		_show_error("Main failed to load")
+		_show_error("Failed to instance %s." % MAIN_SCENE_PATH)
 		return
 	add_child(instance)
 
-func _show_error(message: String) -> void:
-	error_label.text = message
+func _show_error(message):
+	error_label.text = "BOOTSTRAP ERROR:\n" + message
 	error_label.visible = true
