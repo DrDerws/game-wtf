@@ -77,6 +77,6 @@ func _play_ignite_effects() -> void:
 			var frames := int(44100 * 0.18)
 			for i in range(frames):
 				var t := float(i) / float(frames)
-				var amp := lerp(0.5, 0.0, t)
+				var amp: float = lerp(0.5, 0.0, t)
 				var sample: float = (randf() * 2.0 - 1.0) * amp
 				playback.push_frame(Vector2(sample, sample))
