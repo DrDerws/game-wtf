@@ -66,7 +66,7 @@ func _play_hit_sound():
 		var t = float(i) / float(frame_count)
 		var amp = lerp(0.5, 0.0, t)
 		var sample = (randf() * 2.0 - 1.0) * amp * 0.35
-		playback.push_frame(AudioFrame(sample, sample))
+		playback.push_frame(Vector2(sample, sample))
 
 func _setup_audio():
 	if audio_player == null:
