@@ -18,3 +18,6 @@ func collect():
 	if toast != null:
 		toast.show_toast("Picked up %s" % display_name)
 	queue_free()
+
+func get_prompt_text(_selected_item: String, _inventory) -> String:
+	return "E: Collect %s" % display_name

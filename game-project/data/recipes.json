@@ -1,0 +1,19 @@
+{
+  "campfire_kit": {
+    "display_name": "Campfire Kit",
+    "output": 1,
+    "requirements": {
+      "stick": 3,
+      "tinder": 2
+    }
+  },
+  "tarp_tent": {
+    "display_name": "Tarp Tent",
+    "output": 1,
+    "requirements": {
+      "tarp": 1,
+      "stick": 4,
+      "log": 2
+    }
+  }
+}

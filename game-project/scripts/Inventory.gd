@@ -21,6 +21,7 @@ func _initialize_defaults():
 	if items.is_empty():
 		add_item("stone_axe", 1)
 		add_item("flint_steel", 1)
+		add_item("tarp", 1)
 	if hotbar_slots.size() >= 2 and hotbar_slots[0] == "" and hotbar_slots[1] == "":
 		hotbar_slots[0] = "stone_axe"
 		hotbar_slots[1] = "flint_steel"
@@ -61,6 +62,21 @@ func select_slot(index: int):
 		return
 	selected_slot = index
 	emit_signal("selection_changed")
+
+func equip_item(item_id: String) -> bool:
+	if get_count(item_id) <= 0:
+		return false
+	for i in range(hotbar_slots.size()):
+		if hotbar_slots[i] == item_id:
+			selected_slot = i
+			emit_signal("selection_changed")
+			return true
+	if selected_slot < 0 or selected_slot >= HOTBAR_SLOTS:
+		selected_slot = 0
+	hotbar_slots[selected_slot] = item_id
+	emit_signal("hotbar_changed")
+	emit_signal("selection_changed")
+	return true
 
 func get_selected_item() -> String:
 	if selected_slot < 0 or selected_slot >= hotbar_slots.size():

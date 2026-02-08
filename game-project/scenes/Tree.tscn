@@ -46,6 +46,7 @@ material_override = SubResource("5")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 
 [node name="Collider" type="StaticBody3D" parent="."]
+groups=["place_blocker"]
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Collider"]
 shape = SubResource("3")
