@@ -19,6 +19,7 @@ const SAVE_PATH := "user://savegame.json"
 @onready var water_mesh: MeshInstance3D = $Water
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
 @onready var snow_particles: GPUParticles3D = $Weather/SnowParticles
+@onready var cloud_root: Node3D = $Clouds
 
 var time_of_day: float = 20.5
 var wind_factor: float = 0.15
@@ -768,6 +769,7 @@ func _generate_world() -> void:
 	_generate_terrain_mesh()
 	_snap_player_to_ground()
 	_spawn_environment()
+	_spawn_clouds(18)
 	_apply_weather_visuals()
 
 func _snap_player_to_ground() -> void:
@@ -785,6 +787,8 @@ func _ensure_resource_state_keys() -> void:
 
 func _clear_world() -> void:
 	for child in resource_root.get_children():
+		child.queue_free()
+	for child in cloud_root.get_children():
 		child.queue_free()
 	if campfire_preview:
 		campfire_preview.queue_free()
@@ -828,8 +832,7 @@ func _generate_terrain_mesh() -> void:
 	shape.map_width = terrain_resolution + 1
 	shape.map_depth = terrain_resolution + 1
 	shape.map_data = heights
-	shape.cell_size_x = step
-	shape.cell_size_z = step
+	shape.cell_size = step
 	ground_collision.shape = shape
 
 func _make_terrain_material() -> ShaderMaterial:
@@ -861,7 +864,7 @@ void fragment() {
 	return mat
 
 func _spawn_environment() -> void:
-	_spawn_trees(90)
+	_spawn_trees(140)
 	_spawn_stone_nodes(22)
 	_spawn_berry_bushes(26)
 	_spawn_reed_clumps(24)
@@ -879,6 +882,32 @@ func _spawn_environment() -> void:
 	_spawn_pickups("Tinder", 6)
 	_spawn_pickups("Stone", 6)
 	_spawn_saved_drops()
+
+func _spawn_clouds(count: int) -> void:
+	var cloud_mesh := SphereMesh.new()
+	cloud_mesh.radius = 1.0
+	var cloud_material := StandardMaterial3D.new()
+	cloud_material.albedo_color = Color(1.0, 1.0, 1.0, 0.65)
+	cloud_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	cloud_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	cloud_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var half := terrain_size * 0.55
+	for i in range(count):
+		var cloud := MeshInstance3D.new()
+		cloud.mesh = cloud_mesh
+		cloud.material_override = cloud_material
+		var x := rng.randf_range(-half, half)
+		var z := rng.randf_range(-half, half)
+		var y := rng.randf_range(16.0, 24.0)
+		cloud.position = Vector3(x, y, z)
+		cloud.rotation.y = rng.randf_range(0.0, TAU)
+		var scale := Vector3(
+			rng.randf_range(4.0, 8.0),
+			rng.randf_range(1.6, 3.0),
+			rng.randf_range(4.0, 8.0)
+		)
+		cloud.scale = scale
+		cloud_root.add_child(cloud)
 
 func _spawn_trees(count: int) -> void:
 	for i in range(count):
